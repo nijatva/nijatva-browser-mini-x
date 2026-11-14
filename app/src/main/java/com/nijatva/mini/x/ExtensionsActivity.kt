@@ -1,0 +1,818 @@
+package `in`.nijatva.browser
+
+import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.view.Gravity
+import android.view.ViewGroup
+import android.content.res.ColorStateList
+import android.widget.EditText
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
+
+/** Extensions, laid out like a browser add-ons list: icon, name, one-line note, switch. */
+class ExtensionsActivity : BaseSettingsActivity() {
+
+    override val titleRes = R.string.r_extensions
+
+    private val store by lazy { ExtensionStore(this) }
+
+    /** Badge colours, taken from the GBWB palette so the list stays in one family. */
+    private val palette = intArrayOf(
+        0xFF2A9CF0.toInt(), 0xFF0C9054.toInt(), 0xFF90EA48.toInt(),
+        0xFF1EE4F6.toInt(), 0xFF1248B4.toInt(), 0xFF1E8484.toInt()
+    )
+
+    private var installing = false
+    private var remote: List<ExtStore.Remote>? = null
+    private var remoteError: String? = null
+    private var remoteLoading = false
+
+    private fun storeBase(): String =
+        prefs.getString("ext_store_base", ExtStore.DEFAULT_BASE) ?: ExtStore.DEFAULT_BASE
+
+    private val importFile =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) importFrom(uri)
+        }
+
+    override fun build(b: SettingsBuilder, content: LinearLayout) {
+
+        // ---- the header the reference puts at the top: menu, title, search, dev switch ----
+        val head = LinearLayout(this)
+        head.orientation = LinearLayout.HORIZONTAL
+        head.gravity = Gravity.CENTER_VERTICAL
+        head.setPadding(dp(4), dp(2), dp(4), dp(10))
+
+        val menuBtn = TextView(this)
+        menuBtn.text = "\u2630"
+        menuBtn.textSize = 20f
+        menuBtn.setTextColor(attr(R.attr.textPrimaryColor))
+        menuBtn.setPadding(dp(10), dp(6), dp(10), dp(6))
+        menuBtn.setOnClickListener { drawer() }
+        head.addView(menuBtn)
+
+        val title = TextView(this)
+        title.text = getString(R.string.r_extensions)
+        title.textSize = 20f
+        title.setTypeface(null, android.graphics.Typeface.BOLD)
+        title.setTextColor(attr(R.attr.textPrimaryColor))
+        val tlp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        tlp.leftMargin = dp(6)
+        head.addView(title, tlp)
+
+        val devLabel = TextView(this)
+        devLabel.text = getString(R.string.ext_dev_mode)
+        devLabel.textSize = 12.5f
+        devLabel.setTextColor(attr(R.attr.textSecondaryColor))
+        head.addView(devLabel)
+
+        val devSw = androidx.appcompat.widget.SwitchCompat(this)
+        devSw.isChecked = prefs.getBoolean("ext_dev_mode", false)
+        devSw.setOnCheckedChangeListener { _, on ->
+            prefs.edit().putBoolean("ext_dev_mode", on).apply()
+            recreate()
+        }
+        head.addView(devSw)
+        content.addView(head)
+
+        // ---- the pill row, only while developer mode is on ----
+        if (prefs.getBoolean("ext_dev_mode", false)) {
+            val pills = LinearLayout(this)
+            pills.orientation = LinearLayout.HORIZONTAL
+            val plp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            plp.bottomMargin = dp(10)
+            content.addView(pills, plp)
+
+            fun pill(text: String, onTap: () -> Unit) {
+                val t = TextView(this)
+                t.text = text
+                t.textSize = 13f
+                t.setTextColor(attr(R.attr.brandColor))
+                t.setPadding(dp(16), dp(9), dp(16), dp(9))
+                val d = GradientDrawable()
+                d.cornerRadius = dp(18).toFloat()
+                d.setStroke(dp(1), attr(R.attr.brandColor))
+                d.setColor(0x00000000)
+                t.background = d
+                t.setOnClickListener { onTap() }
+                val lp = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                lp.rightMargin = dp(8)
+                t.layoutParams = lp
+                pills.addView(t)
+            }
+            pill(getString(R.string.ext_from_link)) { linkDialog() }
+            pill(getString(R.string.ext_upload)) { importFile.launch(arrayOf("*/*")) }
+            pill(getString(R.string.ext_check)) { checkStore() }
+        }
+
+        // the line the reference shows under the pills
+        b.note(getString(R.string.ext_mobile_note))
+
+        // where scripts may run, and whether they may run in an incognito tab
+        b.section(getString(R.string.ext_site_sec))
+        val sc = b.card()
+        val mode = prefs.getString("ext_site_mode", "on") ?: "on"
+        b.radioRow(sc, getString(R.string.ext_site_on), getString(R.string.ext_site_on_sub), mode == "on") {
+            prefs.edit().putString("ext_site_mode", "on").apply(); recreate()
+        }
+        b.divider(sc)
+        b.radioRow(sc, getString(R.string.ext_site_ask), getString(R.string.ext_site_ask_sub), mode == "ask") {
+            prefs.edit().putString("ext_site_mode", "ask").apply(); recreate()
+        }
+        b.divider(sc)
+        b.radioRow(sc, getString(R.string.ext_site_off), getString(R.string.ext_site_off_sub), mode == "off") {
+            prefs.edit().putString("ext_site_mode", "off").apply(); recreate()
+        }
+        val sc2 = b.card()
+        b.switchRow(sc2, getString(R.string.ext_incog), getString(R.string.ext_incog_sub),
+            prefs.getBoolean("ext_incognito", false)) { _, on ->
+            prefs.edit().putBoolean("ext_incognito", on).apply()
+        }
+        // arriving from the store with one of the scripts that ships in the app
+        val wantBuiltin = intent?.getStringExtra("install_builtin")
+        if (!wantBuiltin.isNullOrBlank() && !installing) {
+            installing = true
+            intent?.removeExtra("install_builtin")
+            val e = try { store.catalog().firstOrNull { it.id == wantBuiltin } } catch (_: Exception) { null }
+            if (e == null) toast(getString(R.string.ext_load_failed))
+            else {
+                store.add(e.copy(enabled = true))
+                toast(getString(R.string.ext_installed_toast, e.name))
+            }
+        }
+
+        // arriving from the store: nijatva://install?u=..&n=..&p=..
+        val want = intent?.getStringExtra("install_url")
+        if (!want.isNullOrBlank() && !installing) {
+            installing = true
+            intent?.removeExtra("install_url")
+            installFromUrl(want, intent?.getStringExtra("install_name") ?: "",
+                intent?.getStringExtra("install_pattern") ?: "*")
+        }
+
+        val installed = store.getAll()
+        val haveIds = installed.map { it.id }.toHashSet()
+
+        // developer mode, as the reference manager has it: the advanced rows are
+        // hidden until someone says they want them
+        val devCard = b.card()
+        b.switchRow(devCard, getString(R.string.ext_dev_mode), getString(R.string.ext_dev_mode_sub),
+            prefs.getBoolean("ext_dev_mode", false)) { _, on ->
+            prefs.edit().putBoolean("ext_dev_mode", on).apply()
+            recreate()
+        }
+        val devOn = prefs.getBoolean("ext_dev_mode", false)
+
+        b.section(getString(R.string.ext_installed))
+        if (installed.isEmpty()) b.note(getString(R.string.ext_none))
+        else {
+            installed.forEach { installedCard(content, it) }
+        }
+
+        val catalog = store.catalog().filter { !haveIds.contains(it.id) }
+        if (catalog.isNotEmpty()) {
+            b.section(getString(R.string.ext_recommended))
+            catalog.forEach { addCard(content, it, true) }
+        }
+
+        if (devOn) {
+            // ---------- remote store (your GitHub) ----------
+            b.section(getString(R.string.ext_remote))
+            val rc = b.card()
+            b.navRow(rc, getString(R.string.ext_remote_source), shortBase(),
+                android.view.View.OnClickListener { editBaseDialog() })
+            b.divider(rc)
+            b.navRow(rc, if (remoteLoading) getString(R.string.ext_checking) else getString(R.string.ext_check),
+                getString(R.string.ext_check_sum), android.view.View.OnClickListener { checkStore() })
+            b.divider(rc)
+            b.navRow(rc, getString(R.string.ext_paste_url), getString(R.string.ext_paste_url_sum),
+                android.view.View.OnClickListener { pasteDialog() })
+
+            if (remoteLoading) b.note(getString(R.string.ext_checking))
+            remoteError?.let { b.note(getString(R.string.ext_remote_error, it)) }
+            remote?.let { list ->
+                if (list.isEmpty()) {
+                    b.note(getString(R.string.ext_remote_empty))
+                } else {
+                    for (r in list) addCard(content, r, haveIds.contains(r.id))
+                }
+            }
+
+        }
+
+        b.section(getString(R.string.ext_add))
+        val add = b.card()
+        b.iconRow(add, R.drawable.ic_new_tab, getString(R.string.ext_add_manual),
+            getString(R.string.ext_add_manual_sum)) { addDialog() }
+        b.divider(add)
+        b.iconRow(add, R.drawable.ic_folder, getString(R.string.ext_upload),
+            getString(R.string.ext_upload_sum)) { importFile.launch(arrayOf("*/*")) }
+        b.divider(add)
+        b.iconRow(add, R.drawable.ic_share, getString(R.string.ext_from_link),
+            getString(R.string.ext_from_link_sum)) { linkDialog() }
+
+        b.note(getString(R.string.ext_note))
+        b.note(getString(R.string.ext_applied_note))
+
+        val more = b.card()
+        b.navRow(more, getString(R.string.ext_find_more), getString(R.string.ext_find_more_sum),
+            android.view.View.OnClickListener { findMore() })
+    }
+
+    // ---------- one row ----------
+    /**
+     * An installed script, drawn the way the reference manager draws an extension:
+     * icon and name, the description, the id in small type, then Details and Remove
+     * as real buttons with the switch beside them.
+     */
+    private fun installedCard(content: LinearLayout, e: Extension) {
+        val card = LinearLayout(this)
+        card.orientation = LinearLayout.VERTICAL
+        card.setPadding(dp(14), dp(14), dp(14), dp(10))
+        val bg = GradientDrawable()
+        bg.cornerRadius = dp(16).toFloat()
+        bg.setColor(attr(R.attr.surfaceColor))
+        card.background = bg
+
+        val top = LinearLayout(this)
+        top.orientation = LinearLayout.HORIZONTAL
+        top.gravity = Gravity.CENTER_VERTICAL
+        top.addView(iconView(e.id, e.name), LinearLayout.LayoutParams(dp(38), dp(38)))
+
+        val nm = TextView(this)
+        nm.text = if (e.version.isNotBlank()) e.name + "  " + e.version else e.name
+        nm.setTextColor(attr(R.attr.textPrimaryColor))
+        nm.textSize = 15f
+        nm.setTypeface(null, Typeface.BOLD)
+        val nlp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        nlp.leftMargin = dp(12)
+        top.addView(nm, nlp)
+        card.addView(top)
+
+        if (e.desc.isNotBlank()) {
+            val ds = TextView(this)
+            ds.text = e.desc
+            ds.setTextColor(attr(R.attr.textSecondaryColor))
+            ds.textSize = 13f
+            ds.maxLines = 3
+            ds.setPadding(dp(50), dp(6), 0, 0)
+            card.addView(ds)
+        }
+
+        val idLine = TextView(this)
+        idLine.text = "ID: " + e.id
+        idLine.setTextColor(attr(R.attr.textSecondaryColor))
+        idLine.textSize = 11.5f
+        idLine.setPadding(dp(50), dp(4), 0, 0)
+        card.addView(idLine)
+
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.gravity = Gravity.CENTER_VERTICAL
+        row.setPadding(0, dp(10), 0, 0)
+
+        fun pill(text: String, onTap: () -> Unit): TextView {
+            val t = TextView(this)
+            t.text = text
+            t.textSize = 13f
+            t.setTextColor(attr(R.attr.brandColor))
+            t.setPadding(dp(16), dp(8), dp(16), dp(8))
+            val d = GradientDrawable()
+            d.cornerRadius = dp(18).toFloat()
+            d.setStroke(dp(1), attr(R.attr.brandColor))
+            d.setColor(0x00000000)
+            t.background = d
+            t.setOnClickListener { onTap() }
+            val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            lp.rightMargin = dp(8)
+            t.layoutParams = lp
+            return t
+        }
+
+        row.addView(pill(getString(R.string.ext_details)) { detail(e) })
+        row.addView(pill(getString(R.string.ext_remove)) { confirmRemove(e) })
+
+        val gap = android.view.View(this)
+        row.addView(gap, LinearLayout.LayoutParams(0, 1, 1f))
+
+        val sw = androidx.appcompat.widget.SwitchCompat(this)
+        sw.isChecked = e.enabled
+        sw.setOnCheckedChangeListener { _, on -> store.update(e.copy(enabled = on)) }
+        row.addView(sw)
+        card.addView(row)
+
+        val clp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        clp.bottomMargin = dp(10)
+        content.addView(card, clp)
+    }
+
+    private fun addCard(content: LinearLayout, e: Extension, recommended: Boolean) {
+        val card = LinearLayout(this)
+        card.orientation = LinearLayout.HORIZONTAL
+        card.gravity = Gravity.CENTER_VERTICAL
+        card.setPadding(dp(14), dp(12), dp(10), dp(12))
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 23) {
+                val ta = obtainStyledAttributes(intArrayOf(android.R.attr.colorControlHighlight))
+                val c = ta.getColor(0, 0x33FFFFFF.toInt())
+                ta.recycle()
+                card.foreground = android.graphics.drawable.RippleDrawable(
+                    android.content.res.ColorStateList.valueOf(c), null, null)
+                card.isFocusable = false
+                card.isFocusableInTouchMode = false
+            }
+        } catch (_: Exception) { }
+        val bg = GradientDrawable()
+        bg.cornerRadius = dp(16).toFloat()
+        bg.setColor(attr(R.attr.surfaceColor))
+        card.background = bg
+
+        card.addView(iconView(e.id, e.name), LinearLayout.LayoutParams(dp(38), dp(38)))
+
+        val col = LinearLayout(this)
+        col.orientation = LinearLayout.VERTICAL
+        val nm = TextView(this)
+        nm.text = e.name
+        nm.setTextColor(attr(R.attr.textPrimaryColor))
+        nm.textSize = 15f
+        nm.setTypeface(null, Typeface.BOLD)
+        val ds = TextView(this)
+        ds.text = (if (e.desc.isNotBlank()) e.desc else e.pattern) +
+            (if (e.isStart()) "  \u00b7  runs first" else "") +
+            (if (e.grants.any { it != "none" }) "  \u00b7  GM" else "")
+        ds.setTextColor(attr(R.attr.textSecondaryColor))
+        ds.textSize = 13f
+        ds.maxLines = 2
+        col.addView(nm)
+        col.addView(ds)
+        val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        lp.leftMargin = dp(12)
+        card.addView(col, lp)
+
+        if (recommended) {
+            val plus = TextView(this)
+            plus.text = "+"
+            plus.textSize = 24f
+            plus.setTextColor(attr(R.attr.brandColor))
+            plus.setPadding(dp(12), dp(2), dp(10), dp(2))
+            plus.setOnClickListener { install(e) }
+            card.addView(plus)
+        } else {
+            val sw = androidx.appcompat.widget.SwitchCompat(this)
+            sw.isChecked = e.enabled
+            sw.setOnCheckedChangeListener { _, on -> store.update(e.copy(enabled = on)) }
+            card.addView(sw)
+            card.setOnClickListener { detail(e) }
+            card.setOnLongClickListener { confirmRemove(e); true }
+            card.isClickable = true
+        }
+
+        val clp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        clp.bottomMargin = dp(10)
+        content.addView(card, clp)
+    }
+
+    /**
+     * The badge on the left of a row: a real glyph for the extensions Nijatva
+     * ships (looked up by id, so renaming one does not lose its icon), and the
+     * first letter for scripts the user brought themselves.
+     */
+    private fun iconView(id: String, name: String): android.view.View {
+        val colour = palette[Math.abs(name.hashCode()) % palette.size]
+        val glyph = extIcons[id]
+        if (glyph != null) {
+            val iv = ImageView(this)
+            iv.setImageResource(glyph)
+            iv.imageTintList = ColorStateList.valueOf(Color.WHITE)
+            iv.scaleType = ImageView.ScaleType.FIT_CENTER
+            iv.setPadding(dp(9), dp(9), dp(9), dp(9))
+            val d = GradientDrawable()
+            d.cornerRadius = dp(12).toFloat()
+            d.setColor(colour)
+            iv.background = d
+            return iv
+        }
+        val t = TextView(this)
+        t.text = (name.trim().firstOrNull() ?: '?').uppercase()
+        t.gravity = Gravity.CENTER
+        t.setTextColor(Color.WHITE)
+        t.textSize = 18f
+        t.setTypeface(null, Typeface.BOLD)
+        val d = GradientDrawable()
+        d.cornerRadius = dp(12).toFloat()
+        d.setColor(colour)
+        t.background = d
+        return t
+    }
+
+    private val extIcons = mapOf(
+        "builtin-dark" to R.drawable.ic_brightness,
+        "builtin-font" to R.drawable.ic_zoom,
+        "builtin-cookie" to R.drawable.ic_cookie,
+        "builtin-json" to R.drawable.ic_code,
+        "builtin-ryd" to R.drawable.ic_thumbdown,
+        "builtin-media" to R.drawable.ic_movie,
+        "builtin-bgplay" to R.drawable.ic_speak,
+        "builtin-target" to R.drawable.ic_new_tab,
+        "cat-shorts" to R.drawable.ic_eyeoff,
+        "cat-ytad" to R.drawable.ic_forward,
+        "cat-noautoplay" to R.drawable.ic_block,
+        "cat-widegh" to R.drawable.ic_desktop,
+        "cat-sticky" to R.drawable.ic_pin,
+        "cat-wiki" to R.drawable.ic_book,
+        "cat-read" to R.drawable.ic_font,
+        "cat-gray" to R.drawable.ic_filter
+    )
+
+    /** Pull the userscript metadata block out and use it for anything not given. */
+    private fun withMeta(name: String, pattern: String, code: String, desc: String): Extension {
+        val m = UserScriptMeta.parse(code)
+        val p = if (pattern.isBlank() || pattern == "*") m.pattern.ifBlank { "*" } else pattern
+        return Extension.new(
+            name.ifBlank { m.name ?: "Extension" },
+            p, code,
+            desc.ifBlank { m.desc ?: "" },
+            m.runAt, m.grants
+        )
+    }
+
+    // ---------- remote ----------
+    private fun shortBase(): String {
+        val b = storeBase()
+        return if (b.length > 46) b.take(22) + "..." + b.takeLast(20) else b
+    }
+
+    private fun checkStore() {
+        remoteLoading = true
+        remoteError = null
+        rebuild()
+        ExtStore.fetchIndex(storeBase()) { list, err ->
+            runOnUiThread {
+                remoteLoading = false
+                remote = list
+                remoteError = err
+                rebuild()
+            }
+        }
+    }
+
+    /** Install straight from a URL, which is what the store's + button sends. */
+    private fun installFromUrl(url: String, name: String, pattern: String) {
+        val base = url.substringBeforeLast('/') + "/"
+        val file = url.substringAfterLast('/')
+        toast(getString(R.string.ext_downloading, name.ifBlank { file }))
+        ExtStore.fetchScript(base, file) { code, err ->
+            runOnUiThread {
+                if (code == null) { toast(err ?: getString(R.string.ext_load_failed)); return@runOnUiThread }
+                val meta = UserScriptMeta.parse(code)
+                val nm = name.ifBlank { meta.name ?: file }
+                val slug = nm.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+                store.add(
+                    Extension(
+                        id = "web-" + slug + "-" + (System.currentTimeMillis() % 100000),
+                        name = nm,
+                        pattern = pattern.ifBlank { meta.pattern.ifBlank { "*" } },
+                        code = code, enabled = true, builtIn = false,
+                        desc = meta.desc ?: getString(R.string.ext_from_github),
+                        runAt = meta.runAt, grants = meta.grants)
+                )
+                toast(getString(R.string.ext_installed_toast, nm))
+                rebuild()
+            }
+        }
+    }
+
+    /** Long-press an installed extension: remove it, with a question first. */
+    private fun confirmRemove(e: Extension) {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.ext_remove_title))
+            .setMessage(getString(R.string.ext_remove_msg, e.name))
+            .setPositiveButton(getString(R.string.ext_remove)) { _, _ ->
+                store.delete(e.id)
+                toast(getString(R.string.ext_removed_toast, e.name))
+                rebuild()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun installRemote(r: ExtStore.Remote, already: Boolean) {
+        if (already) { toast(getString(R.string.ext_already)); return }
+        toast(getString(R.string.ext_downloading, r.name))
+        ExtStore.fetchScript(storeBase(), r.file, r.sha256) { code, err ->
+            runOnUiThread {
+                if (code == null) { toast(err ?: getString(R.string.ext_load_failed)); return@runOnUiThread }
+                val meta = UserScriptMeta.parse(code)
+                store.add(
+                    Extension(
+                        id = r.id, name = r.name,
+                        pattern = r.pattern.ifBlank { meta.pattern.ifBlank { "*" } },
+                        code = code, enabled = true, builtIn = false,
+                        desc = r.desc.ifBlank { meta.desc ?: getString(R.string.ext_from_github) },
+                        runAt = meta.runAt, grants = meta.grants)
+                )
+                toast(getString(R.string.ext_installed_toast, r.name))
+                rebuild()
+            }
+        }
+    }
+
+    private fun pasteDialog() {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val name = EditText(this).apply { hint = getString(R.string.ext_name) }
+        val url = EditText(this).apply {
+            hint = "https://.../my-script.js"
+            inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI
+        }
+        val pattern = EditText(this).apply { hint = getString(R.string.ext_pattern); setText("*") }
+        box.addView(name); box.addView(url); box.addView(pattern)
+        AlertDialog.Builder(this).setTitle(R.string.ext_paste_url).setView(box)
+            .setPositiveButton(R.string.media_download) { _, _ ->
+                val u = url.text.toString().trim()
+                if (u.startsWith("http")) {
+                    val nm = name.text.toString().trim().ifEmpty { u.substringAfterLast("/").substringBefore(".") }
+                    toast(getString(R.string.ext_downloading, nm))
+                    Thread {
+                        try {
+                            val c = java.net.URL(u).openConnection() as java.net.HttpURLConnection
+                            c.connectTimeout = 10000
+                            c.readTimeout = 15000
+                            c.setRequestProperty("User-Agent", "Nijatva")
+                            val code = c.inputStream.bufferedReader().readText()
+                            runOnUiThread {
+                                if (code.isBlank()) { toast(getString(R.string.ext_empty)); return@runOnUiThread }
+                                store.add(withMeta(nm, pattern.text.toString().trim(),
+                                    code, getString(R.string.ext_from_url)))
+                                toast(getString(R.string.ext_installed_toast, nm))
+                                rebuild()
+                            }
+                        } catch (_: Exception) {
+                            runOnUiThread { toast(getString(R.string.ext_load_failed)) }
+                        }
+                    }.start()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun editBaseDialog() {
+        val e = EditText(this)
+        e.setText(storeBase())
+        e.inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI
+        AlertDialog.Builder(this).setTitle(R.string.ext_remote_source).setView(e)
+            .setPositiveButton(R.string.ext_save) { _, _ ->
+                prefs.edit().putString("ext_store_base", e.text.toString().trim()).apply()
+                remote = null; remoteError = null
+                rebuild()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun addCard(content: LinearLayout, r: ExtStore.Remote, already: Boolean) {
+        val card = LinearLayout(this)
+        card.orientation = LinearLayout.HORIZONTAL
+        card.gravity = Gravity.CENTER_VERTICAL
+        card.setPadding(dp(14), dp(12), dp(10), dp(12))
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 23) {
+                val ta = obtainStyledAttributes(intArrayOf(android.R.attr.colorControlHighlight))
+                val c = ta.getColor(0, 0x33FFFFFF.toInt())
+                ta.recycle()
+                card.foreground = android.graphics.drawable.RippleDrawable(
+                    android.content.res.ColorStateList.valueOf(c), null, null)
+                card.isFocusable = false
+                card.isFocusableInTouchMode = false
+            }
+        } catch (_: Exception) { }
+        val bg = GradientDrawable()
+        bg.cornerRadius = dp(16).toFloat()
+        bg.setColor(attr(R.attr.surfaceColor))
+        card.background = bg
+        card.addView(iconView(r.id, r.name), LinearLayout.LayoutParams(dp(38), dp(38)))
+        val col = LinearLayout(this)
+        col.orientation = LinearLayout.VERTICAL
+        val nm = TextView(this)
+        nm.text = r.name
+        nm.setTextColor(attr(R.attr.textPrimaryColor))
+        nm.textSize = 15f
+        nm.setTypeface(null, Typeface.BOLD)
+        val ds = TextView(this)
+        ds.text = (if (r.desc.isNotBlank()) r.desc else r.pattern) + "  \u00b7  v" + r.version
+        ds.setTextColor(attr(R.attr.textSecondaryColor))
+        ds.textSize = 13f
+        ds.maxLines = 2
+        col.addView(nm); col.addView(ds)
+        val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        lp.leftMargin = dp(12)
+        card.addView(col, lp)
+        val btn = TextView(this)
+        btn.text = if (already) getString(R.string.ext_installed_mark) else "+"
+        btn.textSize = if (already) 12f else 24f
+        btn.setTextColor(if (already) attr(R.attr.textSecondaryColor) else attr(R.attr.brandColor))
+        btn.setPadding(dp(12), dp(2), dp(10), dp(2))
+        btn.setOnClickListener { installRemote(r, already) }
+        card.addView(btn)
+        val clp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        clp.bottomMargin = dp(10)
+        content.addView(card, clp)
+    }
+
+    // ---------- actions ----------
+    private fun install(e: Extension) {
+        store.add(e.copy(enabled = true))
+        toast(getString(R.string.ext_installed_toast, e.name))
+        rebuild()
+    }
+
+    private fun detail(e: Extension) {
+        val items = arrayOf(getString(R.string.ext_edit), getString(R.string.ext_delete))
+        AlertDialog.Builder(this)
+            .setTitle(e.name)
+            .setMessage(if (e.desc.isNotBlank()) e.desc else e.pattern)
+            .setItems(items) { _, which ->
+                if (which == 0) editDialog(e) else confirmDelete(e)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /** Opens the store page inside the browser, not a dialog about it. */
+    private fun findMore() {
+        try {
+            startActivity(Intent(this, MainActivity::class.java)
+                .putExtra("open_url", "file:///android_asset/store.html")
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        } catch (_: Exception) {
+            toast(getString(R.string.ext_load_failed))
+        }
+    }
+
+    private fun addDialog() {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val name = EditText(this).apply { hint = getString(R.string.ext_name) }
+        val pattern = EditText(this).apply { hint = getString(R.string.ext_pattern); setText("*") }
+        val code = EditText(this).apply { hint = getString(R.string.ext_code); minLines = 4 }
+        val earlyAdd = android.widget.CheckBox(this).apply { text = getString(R.string.ext_run_start) }
+        box.addView(name); box.addView(pattern); box.addView(code); box.addView(earlyAdd)
+
+        AlertDialog.Builder(this).setTitle(R.string.ext_add_manual).setView(box)
+            .setPositiveButton(R.string.ext_save) { _, _ ->
+                val n = name.text.toString().trim()
+                store.add(withMeta(n, pattern.text.toString().trim(), code.text.toString(), "")
+                    .copy(runAt = if (earlyAdd.isChecked) Extension.RUN_START else Extension.RUN_END))
+                toast(getString(R.string.ext_saved))
+                rebuild()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun editDialog(e: Extension) {
+        val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val name = EditText(this).apply { hint = getString(R.string.ext_name); setText(e.name) }
+        val pattern = EditText(this).apply { hint = getString(R.string.ext_pattern); setText(e.pattern) }
+        val code = EditText(this).apply { hint = getString(R.string.ext_code); setText(e.code); minLines = 4 }
+        val earlyEdit = android.widget.CheckBox(this).apply {
+            text = getString(R.string.ext_run_start); isChecked = e.isStart()
+        }
+        box.addView(name); box.addView(pattern); box.addView(code); box.addView(earlyEdit)
+
+        AlertDialog.Builder(this).setTitle(R.string.ext_edit).setView(box)
+            .setPositiveButton(R.string.ext_save) { _, _ ->
+                val m = UserScriptMeta.parse(code.text.toString())
+                store.update(e.copy(
+                    name = name.text.toString().trim().ifEmpty { e.name },
+                    pattern = pattern.text.toString().trim().ifEmpty { m.pattern.ifBlank { "*" } },
+                    code = code.text.toString(),
+                    desc = e.desc.ifBlank { m.desc ?: "" },
+                    grants = if (m.grants.isEmpty()) e.grants else m.grants,
+                    runAt = if (earlyEdit.isChecked) Extension.RUN_START else Extension.RUN_END))
+                toast(getString(R.string.ext_saved))
+                rebuild()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmDelete(e: Extension) {
+        AlertDialog.Builder(this)
+            .setMessage(getString(R.string.ext_delete) + ": " + e.name + "?")
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                store.delete(e.id)
+                toast(getString(R.string.ext_deleted))
+                rebuild()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun importFrom(uri: Uri) {
+        try {
+            val text = contentResolver.openInputStream(uri)
+                ?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+            var fname = "Script"
+            contentResolver.query(uri, null, null, null, null)?.use { c ->
+                val i = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (c.moveToFirst() && i >= 0) fname = c.getString(i) ?: "Script"
+            }
+            if (text.isBlank()) { toast(getString(R.string.ext_empty)); return }
+            val name = fname.substringBeforeLast(".").ifEmpty { "Script" }
+            store.add(withMeta(name, "", text, getString(R.string.ext_uploaded_desc)))
+            toast(getString(R.string.ext_loaded))
+            rebuild()
+        } catch (_: Exception) {
+            toast(getString(R.string.ext_load_failed))
+        }
+    }
+
+    private fun toast(m: String) = Toast.makeText(this, m, Toast.LENGTH_SHORT).show()
+
+    /**
+     * Install a script straight from a URL - the format our engine actually
+     * supports is a userscript, and sites like Greasy Fork host thousands of
+     * them. The userscript header is parsed the same way a downloaded one is,
+     * so @match and @run-at are honoured.
+     */
+    private fun linkDialog() {
+        val et = android.widget.EditText(this)
+        et.hint = "https://greasyfork.org/scripts/12345.user.js"
+        et.isSingleLine = true
+        et.setTextColor(attr(R.attr.textPrimaryColor))
+        et.setHintTextColor(attr(R.attr.textSecondaryColor))
+        val box = LinearLayout(this)
+        box.setPadding(dp(20), dp(8), dp(20), 0)
+        box.addView(et)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.ext_from_link))
+            .setView(box)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val u = et.text.toString().trim()
+                if (!u.startsWith("http")) {
+                    android.widget.Toast.makeText(this, getString(R.string.ext_bad_link),
+                        android.widget.Toast.LENGTH_LONG).show()
+                } else installFromUrl(u)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun installFromUrl(url: String) {
+        android.widget.Toast.makeText(this, getString(R.string.ext_downloading, url.takeLast(30)),
+            android.widget.Toast.LENGTH_SHORT).show()
+        Thread {
+            try {
+                val text = java.net.URL(url).openStream().bufferedReader().use { it.readText() }
+                if (text.isBlank()) throw Exception("empty")
+                val meta = UserScriptMeta.parse(text)
+                val name = (meta.name ?: url.substringAfterLast('/')).ifBlank { "Script" }
+                runOnUiThread {
+                    val store = ExtensionStore(this)
+                    if (store.getAll().any { it.name.equals(name, true) }) {
+                        android.widget.Toast.makeText(this, getString(R.string.ext_already),
+                            android.widget.Toast.LENGTH_SHORT).show()
+                        return@runOnUiThread
+                    }
+                    val slug = name.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
+                    store.add(Extension(
+                        id = "web-" + slug, name = name,
+                        pattern = meta.pattern.ifBlank { "*" }, code = text,
+                        enabled = true, builtIn = false,
+                        desc = meta.desc ?: getString(R.string.ext_from_link_sum),
+                        runAt = meta.runAt, grants = meta.grants))
+                    android.widget.Toast.makeText(this, getString(R.string.ext_added),
+                        android.widget.Toast.LENGTH_SHORT).show()
+                    rebuild()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    android.widget.Toast.makeText(this, getString(R.string.ext_load_failed),
+                        android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
+    }
+
+    /** The reference's side menu: three places to go, and the store at the bottom. */
+    private fun drawer() {
+        val s = Sheet.build(this, getString(R.string.r_extensions))
+        s.item(getString(R.string.ext_my), 0) { }
+        s.item(getString(R.string.ext_site_sec), 1) { }
+        s.action(getString(R.string.ext_find_more)) { findMore() }
+        s.show()
+    }
+}

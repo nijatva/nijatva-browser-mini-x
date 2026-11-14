@@ -1,4 +1,4 @@
-package `in`.nijatva.browser
+package com.nijatva.mini.x
 
 import org.json.JSONArray
 import org.json.JSONObject

@@ -1,0 +1,666 @@
+package `in`.nijatva.browser
+
+import android.content.Context
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.widget.CompoundButton
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import com.google.android.material.switchmaterial.SwitchMaterial
+
+/** Card/row builder shared by the settings screens and the menu (ported from My Browser). */
+class SettingsBuilder(private val a: Context, private val root: LinearLayout) {
+
+    private val textColor: Int = attr(R.attr.textPrimaryColor)
+    private val mutedColor: Int = attr(R.attr.textSecondaryColor)
+    private val accentColor: Int = attr(R.attr.brandColor)
+
+
+    /**
+     * Settings rows used to be plain text, 183 of them. Rather than pass an icon
+     * at every call site, the builder looks the title up here, so one table gives
+     * every screen its icons.
+     */
+    private val iconByTitle: HashMap<String, Int> = buildIcons()
+
+    private fun buildIcons(): HashMap<String, Int> {
+        val map = HashMap<String, Int>()
+        fun put(id: Int, icon: Int) { map[a.getString(id)] = icon }
+
+        // the settings hub
+        put(R.string.s_appearance, R.drawable.ic_palette)
+        put(R.string.hp_title, R.drawable.ic_home)
+        put(R.string.s_homepage, R.drawable.ic_shortcut)
+        put(R.string.s_search_engine, R.drawable.ic_globe)
+        put(R.string.s_toolbar_nav, R.drawable.ic_toolbar)
+        put(R.string.s_tabs, R.drawable.ic_tabs)
+        put(R.string.s_bookmarks, R.drawable.ic_bookmark)
+        put(R.string.s_history, R.drawable.ic_history)
+        put(R.string.hs_title, R.drawable.ic_schedule)
+        put(R.string.rl_title, R.drawable.ic_book)
+        put(R.string.fl_title, R.drawable.ic_folder)
+        put(R.string.s_downloads, R.drawable.ic_download)
+        put(R.string.dls_title, R.drawable.ic_tune)
+        put(R.string.s_website_settings, R.drawable.ic_lock)
+        put(R.string.rd_title, R.drawable.ic_font)
+        put(R.string.tts_voice, R.drawable.ic_speak)
+        put(R.string.r_privacy_dashboard, R.drawable.ic_shield)
+        put(R.string.ab_title, R.drawable.ic_block)
+        put(R.string.s_tracking, R.drawable.ic_eyeoff)
+        put(R.string.s_cookies, R.drawable.ic_cookie)
+        put(R.string.s_permissions, R.drawable.ic_verified)
+        put(R.string.pf_title, R.drawable.ic_person)
+        put(R.string.s_passwords, R.drawable.ic_key)
+        put(R.string.r_autofill, R.drawable.ic_note)
+        put(R.string.s_clear_data, R.drawable.ic_delete)
+        put(R.string.s_data_usage, R.drawable.ic_data)
+        put(R.string.s_cache, R.drawable.ic_cache)
+        put(R.string.s_background, R.drawable.ic_memory)
+        put(R.string.s_text_size, R.drawable.ic_zoom)
+        put(R.string.s_reader_translate, R.drawable.ic_speak)
+        put(R.string.s_accessibility, R.drawable.ic_access)
+        put(R.string.sf_title, R.drawable.ic_filter)
+        put(R.string.s_backup, R.drawable.ic_cloud)
+        put(R.string.s_developer, R.drawable.ic_code)
+        put(R.string.dg_title, R.drawable.ic_monitor)
+        put(R.string.nl_title, R.drawable.ic_list)
+        put(R.string.uf_title, R.drawable.ic_filter)
+        put(R.string.s_experimental, R.drawable.ic_tools)
+        put(R.string.r_extensions, R.drawable.ic_extension)
+        put(R.string.us_title, R.drawable.ic_brush)
+        put(R.string.s_webview_version, R.drawable.ic_info)
+        put(R.string.s_licences, R.drawable.ic_doc)
+        put(R.string.s_privacy_policy, R.drawable.ic_legal)
+        put(R.string.s_feedback, R.drawable.ic_help)
+        put(R.string.s_updates, R.drawable.ic_update)
+        put(R.string.r_about, R.drawable.ic_logo)
+        put(R.string.s_clear_history, R.drawable.ic_delete)
+
+        // privacy and shielding
+        put(R.string.sh_ads, R.drawable.ic_block)
+        put(R.string.sh_trackers, R.drawable.ic_eyeoff)
+        put(R.string.sh_cookies, R.drawable.ic_cookie)
+        put(R.string.sh_3p, R.drawable.ic_cookie)
+        put(R.string.sh_images, R.drawable.ic_movie)
+        put(R.string.sh_popups, R.drawable.ic_globe)
+        put(R.string.sh_scripts, R.drawable.ic_code)
+        put(R.string.sh_fonts, R.drawable.ic_font)
+        put(R.string.sh_secure_screen, R.drawable.ic_lock)
+        put(R.string.sh_clear_exit, R.drawable.ic_delete)
+        put(R.string.sh_clear_close, R.drawable.ic_delete)
+        put(R.string.sh_clean_urls, R.drawable.ic_filter)
+        put(R.string.sh_easylist, R.drawable.ic_list)
+        put(R.string.sh_safe_browsing, R.drawable.ic_verified)
+        put(R.string.sh_webrtc, R.drawable.ic_shield)
+        put(R.string.sh_app_launch, R.drawable.ic_block)
+        put(R.string.sh_bg_media, R.drawable.ic_movie)
+        put(R.string.reset_identity, R.drawable.ic_eyeoff)
+        put(R.string.priv_clear_all, R.drawable.ic_delete)
+        put(R.string.priv_clear_cache, R.drawable.ic_cache)
+        put(R.string.priv_clear_cookies, R.drawable.ic_cookie)
+
+        // advanced and appearance
+        put(R.string.adv_memory, R.drawable.ic_memory)
+        put(R.string.adv_https, R.drawable.ic_shield)
+        put(R.string.adv_fp, R.drawable.ic_eyeoff)
+        put(R.string.adv_perms, R.drawable.ic_verified)
+        put(R.string.adv_swipe, R.drawable.ic_toolbar)
+        put(R.string.adv_debug, R.drawable.ic_code)
+        put(R.string.adv_amp, R.drawable.ic_globe)
+        put(R.string.adv_double_back, R.drawable.ic_logout)
+        put(R.string.adv_ua, R.drawable.ic_globe)
+        put(R.string.ap_amoled_ui, R.drawable.ic_contrast)
+        put(R.string.ap_dynamic, R.drawable.ic_tune)
+        put(R.string.ap_force_dark, R.drawable.ic_brightness)
+        put(R.string.ap_desktop, R.drawable.ic_desktop)
+        put(R.string.ap_external, R.drawable.ic_logout)
+        put(R.string.ap_immersive, R.drawable.ic_monitor)
+        put(R.string.ap_pull, R.drawable.ic_refresh)
+        put(R.string.ap_scrollbars, R.drawable.ic_toolbar)
+        put(R.string.ap_volume, R.drawable.ic_speak)
+        put(R.string.ap_force_zoom, R.drawable.ic_zoom)
+        put(R.string.theme_dark, R.drawable.ic_dark_mode)
+        put(R.string.theme_light, R.drawable.ic_light_mode)
+        put(R.string.theme_system, R.drawable.ic_brightness_auto)
+        put(R.string.brand_nijatva, R.drawable.ic_palette)
+        put(R.string.brand_quiet, R.drawable.ic_park)
+
+        // reading, start page, downloads, backup, passwords
+        put(R.string.rd_amoled, R.drawable.ic_contrast)
+        put(R.string.rd_autoscroll, R.drawable.ic_refresh)
+        put(R.string.rd_vertical, R.drawable.ic_book)
+        put(R.string.rd_paginate, R.drawable.ic_book)
+        put(R.string.rd_bionic, R.drawable.ic_font)
+        put(R.string.rd_eink, R.drawable.ic_book)
+        put(R.string.rd_focus, R.drawable.ic_book)
+        put(R.string.rd_highlight, R.drawable.ic_speak)
+        put(R.string.rd_keep_screen, R.drawable.ic_lock)
+        put(R.string.rd_keepalive, R.drawable.ic_memory)
+        put(R.string.rd_live, R.drawable.ic_speak)
+        put(R.string.rd_retry, R.drawable.ic_refresh)
+        put(R.string.rd_battery, R.drawable.ic_memory)
+        put(R.string.rd_dict_add, R.drawable.ic_note)
+        put(R.string.sf_on, R.drawable.ic_brightness)
+        put(R.string.sf_night, R.drawable.ic_brightness)
+        put(R.string.hs_greeting, R.drawable.ic_home)
+        put(R.string.hs_show_recent, R.drawable.ic_history)
+        put(R.string.hs_add, R.drawable.ic_new_tab)
+        put(R.string.hs_reset, R.drawable.ic_refresh)
+        put(R.string.ntp_bg, R.drawable.ic_palette)
+        put(R.string.ntp_topsites, R.drawable.ic_globe)
+        put(R.string.ntp_stats, R.drawable.ic_data)
+        put(R.string.ntp_new, R.drawable.ic_new_tab)
+        put(R.string.dl_fast, R.drawable.ic_download)
+        put(R.string.dl_ask, R.drawable.ic_download)
+        put(R.string.dls_background, R.drawable.ic_download)
+        put(R.string.dls_save_to, R.drawable.ic_folder)
+        put(R.string.bk_export, R.drawable.ic_cloud)
+        put(R.string.bk_import, R.drawable.ic_cloud)
+        put(R.string.pw_save, R.drawable.ic_key)
+        put(R.string.pw_auto, R.drawable.ic_key)
+        put(R.string.pw_export, R.drawable.ic_cloud)
+        put(R.string.af_private, R.drawable.ic_incognito)
+        put(R.string.af_browser, R.drawable.ic_settings)
+        put(R.string.af_other, R.drawable.ic_share)
+        put(R.string.tabs_restore, R.drawable.ic_tabs)
+        put(R.string.tabs_private_sep, R.drawable.ic_incognito)
+        put(R.string.tb_top, R.drawable.ic_toolbar)
+        put(R.string.tb_bottom, R.drawable.ic_toolbar)
+        put(R.string.tb_compact, R.drawable.ic_toolbar)
+        put(R.string.tb_focus, R.drawable.ic_toolbar)
+        put(R.string.nl_clear, R.drawable.ic_delete)
+        put(R.string.nl_enable, R.drawable.ic_list)
+        put(R.string.uf_add, R.drawable.ic_filter)
+        put(R.string.uf_enable, R.drawable.ic_filter)
+        put(R.string.us_add, R.drawable.ic_note)
+        put(R.string.ext_delete, R.drawable.ic_delete)
+        put(R.string.ext_edit, R.drawable.ic_note)
+        put(R.string.ext_find_more, R.drawable.ic_extension)
+        put(R.string.ext_paste_url, R.drawable.ic_extension)
+        put(R.string.ext_remote_source, R.drawable.ic_globe)
+        put(R.string.media_copy, R.drawable.ic_movie)
+        put(R.string.media_download, R.drawable.ic_download)
+        put(R.string.lang_add, R.drawable.ic_globe)
+        put(R.string.lang_device, R.drawable.ic_globe)
+        put(R.string.lang_translate, R.drawable.ic_translate)
+        put(R.string.se_add, R.drawable.ic_globe)
+        put(R.string.se_current, R.drawable.ic_globe)
+        put(R.string.se_set_default, R.drawable.ic_globe)
+        put(R.string.pf_restricted, R.drawable.ic_shield)
+        put(R.string.pf_standard, R.drawable.ic_access)
+        put(R.string.pf_trusted, R.drawable.ic_verified)
+        put(R.string.pf_change, R.drawable.ic_access)
+        put(R.string.st_manage_modes, R.drawable.ic_access)
+        put(R.string.m_page_scripts, R.drawable.ic_code)
+        put(R.string.m_block_element, R.drawable.ic_select)
+
+        // diagnostics and files
+        for (id in intArrayOf(R.string.dg_android, R.string.dg_battery, R.string.dg_crash,
+                R.string.dg_engines, R.string.dg_history, R.string.dg_memory,
+                R.string.dg_rules, R.string.dg_service, R.string.dg_tts, R.string.dg_webview)) {
+            put(id, R.drawable.ic_monitor)
+        }
+        for (id in intArrayOf(R.string.fl_audio, R.string.fl_available, R.string.fl_docs,
+                R.string.fl_images, R.string.fl_total, R.string.fl_videos)) {
+            put(id, R.drawable.ic_folder)
+        }
+        for (id in intArrayOf(R.string.ab_ads, R.string.ab_blocked, R.string.ab_enable,
+                R.string.ab_reset, R.string.ab_saved, R.string.ab_trackers, R.string.ab_add_site)) {
+            put(id, R.drawable.ic_block)
+        }
+        for (id in intArrayOf(R.string.hist_day, R.string.hist_hour, R.string.hist_week)) {
+            put(id, R.drawable.ic_schedule)
+        }
+        for (id in intArrayOf(R.string.hs_style_personal, R.string.hs_style_dashboard,
+                R.string.hs_style_minimal)) {
+            put(id, R.drawable.ic_home)
+        }
+        return map
+    }
+
+    /** Adds the leading icon for a row, if this title has one. */
+    private fun titleIcon(row: LinearLayout, title: String) {
+        val ic = iconByTitle[title] ?: return
+        addIcon(row, ic)
+    }
+
+    private fun attr(resid: Int): Int {
+        val tv = TypedValue()
+        a.theme.resolveAttribute(resid, tv, true)
+        return tv.data
+    }
+
+    private fun dp(v: Int) = (a.resources.displayMetrics.density * v).toInt()
+
+    fun section(title: String) {
+        val t = TextView(a)
+        t.text = title
+        t.setTextColor(accentColor)
+        t.textSize = 13f
+        t.letterSpacing = 0.06f
+        t.setPadding(dp(22), dp(20), dp(8), dp(8))
+        root.addView(t)
+    }
+
+    fun card(): LinearLayout {
+        val c = LinearLayout(a)
+        c.orientation = LinearLayout.VERTICAL
+        c.setBackgroundResource(R.drawable.card_bg)
+        c.elevation = dp(2).toFloat()
+        val lp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        lp.leftMargin = dp(16)
+        lp.rightMargin = dp(16)
+        c.layoutParams = lp
+        root.addView(c)
+        return c
+    }
+
+    fun note(text: String) {
+        val t = TextView(a)
+        t.text = text
+        t.setTextColor(mutedColor)
+        t.textSize = 13f
+        t.setPadding(dp(26), dp(10), dp(26), dp(0))
+        root.addView(t)
+    }
+
+    /** The theme's own ripple, so a tap gives the feedback Material 3 expects. */
+    /**
+     * A ripple that only exists while the finger is down. The theme's
+     * selectableItemBackground also draws a highlight for the focused state, and
+     * a row keeps focus after a tap - which looked like the wrong row was
+     * selected (Exit in the menu, All settings in the list).
+     */
+    /**
+     * A ripple has to be a NEW object per row. A Drawable keeps its own state, so
+     * one shared instance carried a stuck press from a row that was removed mid
+     * touch into the next screen - which is why the grey wash kept coming back on
+     * Exit and on All settings even after the ripple was made press-only.
+     */
+    private fun newRipple(): android.graphics.drawable.Drawable? = try {
+        val ta = a.obtainStyledAttributes(intArrayOf(android.R.attr.colorControlHighlight))
+        val c = ta.getColor(0, 0x33FFFFFF.toInt())
+        ta.recycle()
+        val mask = android.graphics.drawable.GradientDrawable()
+        mask.setColor(-1)
+        mask.cornerRadius = dp(14).toFloat()
+        android.graphics.drawable.RippleDrawable(
+            android.content.res.ColorStateList.valueOf(c), null, mask)
+    } catch (_: Exception) { null }
+
+    private fun rowBase(card: LinearLayout): LinearLayout {
+        val r = LinearLayout(a)
+        r.orientation = LinearLayout.HORIZONTAL
+        r.gravity = Gravity.CENTER_VERTICAL
+        r.setPadding(dp(16), dp(15), dp(16), dp(15))
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 23) r.foreground = newRipple()
+            r.isFocusable = false
+            r.isFocusableInTouchMode = false
+            // settle the ripple on lift, even when the tap closes this screen
+            r.setOnTouchListener { v, e ->
+                if (e.action == android.view.MotionEvent.ACTION_UP ||
+                    e.action == android.view.MotionEvent.ACTION_CANCEL) {
+                    v.post { try { v.jumpDrawablesToCurrentState() } catch (_: Exception) { } }
+                }
+                false
+            }
+        } catch (_: Exception) { }
+        card.addView(r)
+        return r
+    }
+
+    private fun textCol(row: LinearLayout, title: String, summary: String?, color: Int): TextView? {
+        val col = LinearLayout(a)
+        col.orientation = LinearLayout.VERTICAL
+        col.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        val t = TextView(a)
+        t.text = title
+        t.setTextColor(color)
+        t.textSize = 16f
+        t.maxLines = 1
+        t.ellipsize = android.text.TextUtils.TruncateAt.END
+        col.addView(t)
+        var made: TextView? = null
+        if (!summary.isNullOrEmpty()) {
+            val s = TextView(a)
+            s.text = summary
+            s.setTextColor(mutedColor)
+            s.textSize = 13f
+            s.maxLines = 2
+            s.ellipsize = android.text.TextUtils.TruncateAt.END
+            s.setPadding(0, dp(3), 0, 0)
+            col.addView(s)
+            made = s
+        }
+        row.addView(col)
+        return made
+    }
+
+    private fun addIcon(row: LinearLayout, iconRes: Int) {
+        val ic = ImageView(a)
+        ic.setImageResource(iconRes)
+        ic.setColorFilter(mutedColor)
+        val ilp = LinearLayout.LayoutParams(dp(22), dp(22))
+        ilp.rightMargin = dp(16)
+        ic.layoutParams = ilp
+        row.addView(ic)
+    }
+
+    private fun addChevron(row: LinearLayout) {
+        val chev = ImageView(a)
+        chev.setImageResource(R.drawable.ic_chev)
+        chev.setColorFilter(mutedColor)
+        chev.layoutParams = LinearLayout.LayoutParams(dp(18), dp(18))
+        row.addView(chev)
+    }
+
+    fun divider(card: LinearLayout) {
+        val v = View(a)
+        v.setBackgroundColor(0x1A808080)
+        val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1))
+        lp.leftMargin = dp(16)
+        lp.rightMargin = dp(16)
+        v.layoutParams = lp
+        card.addView(v)
+    }
+
+    fun navRow(card: LinearLayout, title: String, summary: String?, l: View.OnClickListener?): TextView? {
+        val r = rowBase(card)
+        titleIcon(r, title)
+        val sub = textCol(r, title, summary, textColor)
+        addChevron(r)
+        r.setOnClickListener(l)
+        r.isClickable = l != null
+        return sub
+    }
+
+    fun iconRow(card: LinearLayout, iconRes: Int, title: String, summary: String?, l: View.OnClickListener?) {
+        val r = rowBase(card)
+        addIcon(r, iconRes)
+        textCol(r, title, summary, textColor)
+        addChevron(r)
+        r.setOnClickListener(l)
+        r.isClickable = l != null
+    }
+
+    /**
+     * A row whose icon carries a colour of its own, so a long list can be read by
+     * colour before it is read by word - the way the reference settings screen does.
+     */
+    fun iconRowTinted(card: LinearLayout, iconRes: Int, tint: Int, title: String,
+                      summary: String?, l: View.OnClickListener?) {
+        val r = rowBase(card)
+        val ic = ImageView(a)
+        ic.setImageResource(iconRes)
+        ic.setColorFilter(tint)
+        val ilp = LinearLayout.LayoutParams(dp(22), dp(22))
+        ilp.rightMargin = dp(16)
+        ic.layoutParams = ilp
+        r.addView(ic)
+        textCol(r, title, summary, textColor)
+        addChevron(r)
+        r.setOnClickListener(l)
+        r.isClickable = l != null
+    }
+
+    /** Same as iconRow but without the trailing chevron, for the floating menu card. */
+    fun menuRow(card: LinearLayout, iconRes: Int, title: String, summary: String?, l: View.OnClickListener?) {
+        val r = rowBase(card)
+        addIcon(r, iconRes)
+        textCol(r, title, summary, textColor)
+        r.setOnClickListener(l)
+        r.isClickable = l != null
+    }
+
+    fun iconValueRow(card: LinearLayout, iconRes: Int, title: String, value: String, l: View.OnClickListener?) {
+        val r = rowBase(card)
+        addIcon(r, iconRes)
+        textCol(r, title, null, textColor)
+        val v = TextView(a)
+        v.text = value
+        v.setTextColor(accentColor)
+        v.textSize = 13f
+        r.addView(v)
+        r.setOnClickListener(l)
+        r.isClickable = l != null
+    }
+
+    fun disabledRow(card: LinearLayout, title: String, summary: String?) {
+        val r = rowBase(card)
+        textCol(r, title, summary, mutedColor)
+        val tag = TextView(a)
+        tag.text = "ENGINE"
+        tag.textSize = 11f
+        tag.letterSpacing = 0.08f
+        tag.setTextColor(mutedColor)
+        tag.setBackgroundResource(R.drawable.tag_bg)
+        tag.setPadding(dp(8), dp(3), dp(8), dp(3))
+        r.addView(tag)
+        r.isEnabled = false
+        r.alpha = 0.6f
+    }
+
+    /**
+     * An empty screen should teach the next action, not just say "nothing here".
+     * One icon, one line, and up to two buttons - the primary filled, the
+     * secondary outlined.
+     */
+    fun emptyState(card: LinearLayout, iconRes: Int, title: String, sub: String?,
+                   primary: String? = null, onPrimary: (() -> Unit)? = null,
+                   secondary: String? = null, onSecondary: (() -> Unit)? = null) {
+        val col = LinearLayout(a)
+        col.orientation = LinearLayout.VERTICAL
+        col.gravity = Gravity.CENTER_HORIZONTAL
+        col.setPadding(dp(24), dp(46), dp(24), dp(40))
+        card.addView(col)
+
+        val ic = android.widget.ImageView(a)
+        ic.setImageResource(iconRes)
+        ic.setColorFilter(attr(R.attr.textSecondaryColor))
+        col.addView(ic, LinearLayout.LayoutParams(dp(52), dp(52)))
+
+        val t = TextView(a)
+        t.text = title
+        t.setTextColor(attr(R.attr.textPrimaryColor))
+        t.textSize = 17f
+        t.gravity = Gravity.CENTER
+        t.setPadding(0, dp(14), 0, 0)
+        col.addView(t)
+
+        if (!sub.isNullOrBlank()) {
+            val s = TextView(a)
+            s.text = sub
+            s.setTextColor(attr(R.attr.textSecondaryColor))
+            s.textSize = 13f
+            s.gravity = Gravity.CENTER
+            s.setPadding(dp(8), dp(8), dp(8), 0)
+            col.addView(s)
+        }
+
+        if (primary != null && onPrimary != null) {
+            col.addView(pill(primary, filled = true, on = onPrimary))
+        }
+        if (secondary != null && onSecondary != null) {
+            col.addView(pill(secondary, filled = false, on = onSecondary))
+        }
+    }
+
+    private fun pill(label: String, filled: Boolean, on: () -> Unit): LinearLayout {
+        val holder = LinearLayout(a)
+        holder.gravity = Gravity.CENTER
+        val lp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        lp.topMargin = dp(12)
+        holder.layoutParams = lp
+
+        val btn = TextView(a)
+        btn.text = label
+        btn.textSize = 15f
+        btn.gravity = Gravity.CENTER
+        btn.setPadding(dp(18), dp(13), dp(18), dp(13))
+        btn.setTextColor(if (filled) attr(R.attr.textPrimaryColor) else attr(R.attr.textSecondaryColor))
+        val bg = android.graphics.drawable.GradientDrawable()
+        bg.cornerRadius = dp(24).toFloat()
+        if (filled) {
+            bg.setColor(attr(R.attr.surface2Color))
+        } else {
+            bg.setColor(0x00000000)
+            bg.setStroke(dp(1), attr(R.attr.dividerColor))
+        }
+        btn.background = bg
+        btn.isFocusable = false
+        btn.setOnClickListener { on() }
+        holder.addView(btn, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        return holder
+    }
+
+    /**
+     * A row that opens a screen and carries its own switch: the chevron says
+     * "there is more in here", the switch says "and you can turn it off without
+     * going in". Tapping the row navigates; tapping the switch does not.
+     */
+    fun toggleNavRow(card: LinearLayout, iconRes: Int, title: String, summary: String?,
+                     checked: Boolean, onNav: () -> Unit,
+                     onToggle: (Boolean) -> Unit): android.widget.CompoundButton {
+        val r = rowBase(card)
+        addIcon(r, iconRes)
+        textCol(r, title, summary, textColor)
+
+        val chev = TextView(a)
+        chev.text = "\u203a"
+        chev.textSize = 20f
+        chev.setTextColor(attr(R.attr.textSecondaryColor))
+        chev.setPadding(dp(6), 0, dp(10), 0)
+        r.addView(chev)
+
+        val sw = com.google.android.material.switchmaterial.SwitchMaterial(a)
+        sw.isChecked = checked
+        sw.isFocusable = false
+        sw.setOnCheckedChangeListener { _, v -> onToggle(v) }
+        r.addView(sw)
+        r.setOnClickListener { onNav() }
+        return sw
+    }
+
+    /**
+     * Theme as three cards rather than three radio rows: the light card is
+     * white and the dark card is black, so the choice explains itself.
+     */
+    fun themeCards(card: LinearLayout, current: String, onPick: (String) -> Unit) {
+        val strip = LinearLayout(a)
+        strip.orientation = LinearLayout.HORIZONTAL
+        strip.setPadding(dp(12), dp(12), dp(12), dp(12))
+        card.addView(strip)
+
+        val options = listOf(
+            Triple("system", "Follow system", 0),
+            Triple("light", "Light", 1),
+            Triple("dark", "Dark", 2)
+        )
+        for ((key, label, kind) in options) {
+            val on = key == current
+            val cell = LinearLayout(a)
+            cell.orientation = LinearLayout.VERTICAL
+            cell.gravity = Gravity.CENTER
+            cell.setPadding(dp(4), dp(20), dp(4), dp(18))
+            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            lp.rightMargin = dp(8)
+            cell.layoutParams = lp
+
+            val bg = android.graphics.drawable.GradientDrawable()
+            bg.cornerRadius = dp(14).toFloat()
+            // the card shows its own theme
+            when (kind) {
+                1 -> bg.setColor(0xFFFFFFFF.toInt())
+                2 -> bg.setColor(0xFF0E0E10.toInt())
+                else -> bg.setColor(attr(R.attr.surface2Color))
+            }
+            if (on) bg.setStroke(dp(2), attr(R.attr.brandColor))
+            else bg.setStroke(dp(1), attr(R.attr.dividerColor))
+            cell.background = bg
+            cell.isFocusable = false
+
+            val t = TextView(a)
+            t.text = label
+            t.textSize = 13f
+            t.gravity = Gravity.CENTER
+            t.setTextColor(
+                when (kind) {
+                    1 -> 0xFF101010.toInt()
+                    2 -> 0xFFF2F2F2.toInt()
+                    else -> attr(R.attr.textPrimaryColor)
+                })
+            cell.addView(t)
+
+            if (on) {
+                val check = TextView(a)
+                check.text = "\u2713"
+                check.textSize = 12f
+                check.gravity = Gravity.CENTER
+                check.setTextColor(attr(R.attr.brandColor))
+                cell.addView(check)
+            }
+
+            cell.setOnClickListener { onPick(key) }
+            strip.addView(cell)
+        }
+    }
+
+    fun switchRow(card: LinearLayout, title: String, summary: String?, checked: Boolean,
+                  l: CompoundButton.OnCheckedChangeListener?): SwitchMaterial {
+        val r = rowBase(card)
+        titleIcon(r, title)
+        textCol(r, title, summary, textColor)
+        val sw = SwitchMaterial(a)
+        sw.isChecked = checked
+        if (l != null) sw.setOnCheckedChangeListener(l)
+        r.addView(sw)
+        return sw
+    }
+
+    fun iconSwitchRow(card: LinearLayout, iconRes: Int, title: String, summary: String?,
+                      checked: Boolean, l: CompoundButton.OnCheckedChangeListener?): SwitchMaterial {
+        val r = rowBase(card)
+        addIcon(r, iconRes)
+        textCol(r, title, summary, textColor)
+        val sw = SwitchMaterial(a)
+        sw.isChecked = checked
+        if (l != null) sw.setOnCheckedChangeListener(l)
+        r.addView(sw)
+        return sw
+    }
+
+    fun radioRow(card: LinearLayout, title: String, summary: String?, checked: Boolean, l: View.OnClickListener?) {
+        val r = rowBase(card)
+        titleIcon(r, title)
+        val dot = ImageView(a)
+        dot.setImageResource(if (checked) R.drawable.radio_on else R.drawable.radio_off)
+        val dlp = LinearLayout.LayoutParams(dp(22), dp(22))
+        dlp.rightMargin = dp(14)
+        dot.layoutParams = dlp
+        r.addView(dot)
+        textCol(r, title, summary, textColor)
+        r.setOnClickListener(l)
+        r.isClickable = l != null
+    }
+
+    fun valueRow(card: LinearLayout, title: String, value: String, l: View.OnClickListener?) {
+        val r = rowBase(card)
+        titleIcon(r, title)
+        textCol(r, title, null, textColor)
+        val v = TextView(a)
+        v.text = value
+        v.setTextColor(accentColor)
+        v.textSize = 13f
+        r.addView(v)
+        r.setOnClickListener(l)
+        r.isClickable = l != null
+    }
+}

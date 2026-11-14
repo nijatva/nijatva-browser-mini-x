@@ -1,0 +1,390 @@
+package `in`.nijatva.browser
+
+import android.app.DownloadManager
+import android.content.Intent
+import android.net.Uri
+import android.widget.LinearLayout
+import androidx.appcompat.app.AlertDialog
+
+/**
+ * Settings hub.
+ *
+ * The first screen carries only the ten things people actually change — search
+ * engine, appearance, shields, tabs, downloads, history, bookmarks, passwords
+ * and clearing data. Everything else lives behind "All settings", grouped by
+ * what it is for and sorted A to Z inside each group, so the list stays
+ * scannable instead of being a 45-row wall. The search box always looks at the
+ * whole set, whichever screen you are on.
+ */
+class SettingsActivity : BaseSettingsActivity() {
+
+    override val titleRes = R.string.settings_title
+
+    private var query = ""
+    private var searchAdded = false
+
+    private data class Item(val label: String, val action: () -> Unit)
+
+    private val showAll: Boolean
+        get() = intent?.getBooleanExtra("all", false) == true
+
+    private fun row(r: Int, action: () -> Unit) = Item(getString(r), action)
+
+    private fun downloads() = row(R.string.s_downloads) {
+        try { startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) } catch (_: Exception) { }
+    }
+
+    private fun dialog(r: Int, body: String) = { showDialog(getString(r), body) }
+
+    /** The ten rows worth showing without a tap. */
+    /**
+     * The first screen, in the shape the reference uses: five short groups.
+     * Everything else lives behind All settings.
+     */
+    private fun tier1(): List<Pair<String, List<Item>>> = listOf(
+        getString(R.string.sec_basics) to listOf(
+            row(R.string.s_search_engine) { go(SearchEngineActivity::class.java) },
+            row(R.string.hp_title) { go(HomepageActivity::class.java) },
+            row(R.string.r_languages) { go(LanguagesActivity::class.java) }
+        ),
+        getString(R.string.sec_appearance) to listOf(
+            row(R.string.s_appearance) { go(AppearanceActivity::class.java) },
+            row(R.string.s_toolbar_nav) { go(ToolbarActivity::class.java) },
+            row(R.string.s_tabs) { go(TabsActivity::class.java) },
+            Item(getString(R.string.m_night)) { toggleNight() }
+        ),
+        getString(R.string.sec_privacy) to listOf(
+            row(R.string.ab_title) { go(AdBlockActivity::class.java) },
+            Item(getString(R.string.sh_clean_urls)) {
+                val on = prefs.getBoolean("clean_urls", false)
+                prefs.edit().putBoolean("clean_urls", !on).apply()
+                rebuild()
+            },
+            row(R.string.r_privacy_dashboard) { go(PrivacyActivity::class.java) },
+            row(R.string.s_permissions) { go(SitePermissionsActivity::class.java) }
+        ),
+        getString(R.string.sec_reading) to listOf(
+            row(R.string.s_reader_translate) { go(ReadingActivity::class.java) },
+            row(R.string.dls_title) { go(DownloadSettingsActivity::class.java) }
+        ),
+        getString(R.string.sec_about) to listOf(
+            row(R.string.dev_title) { go(DeveloperActivity::class.java) },
+            row(R.string.don_title) { go(DonateActivity::class.java) }
+        )
+    )
+
+    /** Night mode is a switch, not a screen, so it flips here. */
+    private fun toggleNight() {
+        val on = prefs.getBoolean("force_dark", false)
+        prefs.edit().putBoolean("force_dark", !on).apply()
+        rebuild()
+    }
+
+    /** Everything, grouped by what it is for, A to Z inside each group. */
+    private fun everything(): List<Pair<String, List<Item>>> = listOf(
+        getString(R.string.sec_general) to listOf(
+            row(R.string.s_appearance) { go(AppearanceActivity::class.java) },
+            row(R.string.s_bookmarks) { go(BookmarksActivity::class.java) },
+            row(R.string.dls_title) { go(DownloadSettingsActivity::class.java) },
+            downloads(),
+            row(R.string.fl_title) { go(FilesActivity::class.java) },
+            row(R.string.s_history) { go(HistoryActivity::class.java) },
+            row(R.string.hs_title) { go(HistorySettingsActivity::class.java) },
+            row(R.string.s_homepage) { go(HomeShortcutsActivity::class.java) },
+            row(R.string.hp_title) { go(HomepageActivity::class.java) },
+            row(R.string.rl_title) { go(ReadingListActivity::class.java) },
+            row(R.string.s_search_engine) { go(SearchEngineActivity::class.java) },
+            row(R.string.s_tabs) { go(TabsActivity::class.java) },
+            row(R.string.s_toolbar_nav) { go(ToolbarActivity::class.java) },
+            Item(getString(R.string.st_manage_modes)) {
+                try {
+                    startActivity(Intent(this, MainActivity::class.java)
+                        .putExtra("show", "containers")
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+                } catch (_: Exception) { }
+            }
+        ).sortedBy { it.label.lowercase() },
+
+        getString(R.string.sec_privacy) to listOf(
+            row(R.string.ab_title) { go(AdBlockActivity::class.java) },
+            row(R.string.r_autofill) { go(AutofillActivity::class.java) },
+            row(R.string.s_clear_data) { go(PrivacyActivity::class.java) },
+            row(R.string.s_cookies) { go(PrivacyActivity::class.java) },
+            row(R.string.s_passwords) { go(PasswordsActivity::class.java) },
+            row(R.string.s_permissions) { go(SitePermissionsActivity::class.java) },
+            row(R.string.r_privacy_dashboard) { go(PrivacyActivity::class.java) },
+            row(R.string.pf_title) { go(ProfilesActivity::class.java) },
+            row(R.string.s_tracking) { go(ShieldsActivity::class.java) },
+            row(R.string.s_focus) { go(FocusActivity::class.java) },
+            row(R.string.s_website_settings) { go(SitePermissionsActivity::class.java) }
+        ).sortedBy { it.label.lowercase() },
+
+        getString(R.string.sec_accessibility) to listOf(
+            row(R.string.s_accessibility) { go(AppearanceActivity::class.java) },
+            row(R.string.rd_title) { go(ReadingActivity::class.java) },
+            row(R.string.s_reader_translate) { go(ReadingActivity::class.java) },
+            row(R.string.sf_title) { go(ScreenFilterActivity::class.java) },
+            row(R.string.s_text_size) { go(AppearanceActivity::class.java) }
+        ).sortedBy { it.label.lowercase() },
+
+        getString(R.string.sec_performance) to listOf(
+            row(R.string.s_background) { go(AdvancedActivity::class.java) },
+            row(R.string.s_cache) { go(PrivacyActivity::class.java) },
+            row(R.string.s_data_usage) { go(AdvancedActivity::class.java) }
+        ).sortedBy { it.label.lowercase() },
+
+        getString(R.string.sec_advanced) to listOf(
+            row(R.string.s_backup) { go(BackupActivity::class.java) },
+            row(R.string.s_developer) { go(AdvancedActivity::class.java) },
+            row(R.string.dg_title) { go(DiagnosticsActivity::class.java) },
+            row(R.string.r_extensions) { go(ExtensionsActivity::class.java) },
+            Item(getString(R.string.s_experimental), dialog(R.string.s_experimental, getString(R.string.exp_note))),
+            row(R.string.nl_title) { go(NetLogActivity::class.java) },
+            row(R.string.uf_title) { go(UrlFiltersActivity::class.java) },
+            row(R.string.us_title) { go(UserStylesActivity::class.java) }
+        ).sortedBy { it.label.lowercase() },
+
+        getString(R.string.sec_about) to listOf(
+            Item(getString(R.string.s_updates), dialog(R.string.s_updates, getString(R.string.updates_note))),
+            Item(getString(R.string.s_feedback), { feedback() }),
+            Item(getString(R.string.s_licences), dialog(R.string.s_licences, getString(R.string.licences_note))),
+            Item(getString(R.string.s_privacy_policy), dialog(R.string.s_privacy_policy, getString(R.string.policy_note))),
+            Item(getString(R.string.s_webview_version), dialog(R.string.s_webview_version, webViewVersion())),
+            // the version is a row in this group, not a section of its own
+            Item(getString(R.string.s_app_version), { showDialog(getString(R.string.s_app_version), appVersion()) })
+        ).sortedBy { it.label.lowercase() }
+    )
+
+    override fun build(b: SettingsBuilder, content: LinearLayout) {
+        addSearchBox()
+
+        // A shortcut layer, not four new settings: each switch here is the same
+        // pref as its canonical row further down, so the two stay in step.
+        b.section(getString(R.string.quick_settings))
+        val quick = b.card()
+        b.iconSwitchRow(quick, R.drawable.ic_brightness, getString(R.string.m_night), null,
+            prefs.getBoolean("force_dark", false)) { _, on ->
+            prefs.edit().putBoolean("force_dark", on).apply()
+            rebuild()
+        }
+        b.divider(quick)
+        b.iconSwitchRow(quick, R.drawable.ic_block, getString(R.string.sh_ads), null,
+            prefs.getBoolean("block_ads", true)) { _, on ->
+            prefs.edit().putBoolean("block_ads", on).apply()
+        }
+        b.divider(quick)
+        b.iconSwitchRow(quick, R.drawable.ic_shield, getString(R.string.sh_trackers), null,
+            prefs.getBoolean("block_trackers", true)) { _, on ->
+            prefs.edit().putBoolean("block_trackers", on).apply()
+        }
+        b.divider(quick)
+        b.iconSwitchRow(quick, R.drawable.ic_lock, getString(R.string.sh_https), null,
+            prefs.getBoolean("https_only", false)) { _, on ->
+            prefs.edit().putBoolean("https_only", on).apply()
+        }
+
+        // A search always looks at everything, on either screen.
+        if (query.isNotBlank()) {
+            b.section(getString(R.string.st_search_results))
+            val card = b.card()
+            var first = true
+            for ((_, items) in tier1() + everything()) {
+                for (item in items) {
+                    if (!item.label.contains(query, true)) continue
+                    if (!first) b.divider(card)
+                    first = false
+                    b.navRow(card, item.label, null, android.view.View.OnClickListener { item.action() })
+                }
+            }
+            if (first) b.note(getString(R.string.no_settings_found))
+            return
+        }
+
+        if (!showAll) {
+            val groups = tier1()
+            for ((title, items) in groups) {
+                b.section(title)
+                val card = b.card()
+                for (item in items) {
+                    val night = item.label == getString(R.string.m_night)
+                    // the listener needs the row it belongs to, so hold it in a
+                    // variable the lambda can see once navRow has built the row
+                    var line: android.widget.TextView? = null
+                    line = b.navRow(card, item.label, subtitle(item.label),
+                        android.view.View.OnClickListener {
+                            if (night) {
+                                // flip it and change just this line: rebuilding the
+                                // whole screen for one switch is what felt rough
+                                prefs.edit()
+                                    .putBoolean("force_dark", !prefs.getBoolean("force_dark", false))
+                                    .apply()
+                                line?.text = if (prefs.getBoolean("force_dark", false)) "On" else "Off"
+                            } else item.action()
+                        })
+                }
+            }
+
+            val shown = groups.flatMap { it.second }.map { it.label }.toSet()
+            val more = everything().flatMap { it.second }
+                .count { it.label !in shown }
+            val all = b.card()
+            b.navRow(all, getString(R.string.st_all_settings),
+                getString(R.string.st_all_settings_sub, more),
+                android.view.View.OnClickListener {
+                    startActivity(Intent(this, SettingsActivity::class.java).putExtra("all", true))
+                })
+            return
+        }
+
+        b.section(getString(R.string.st_all_settings))
+        val already = tier1().flatMap { it.second }.map { it.label }.toSet()
+        for ((si, pair) in everything().withIndex()) {
+            val (title, items) = pair
+            val kept = items.filter { it.label !in already }
+            if (kept.isEmpty()) continue
+            b.section(title)
+            val card = b.card()
+            for ((i, item) in kept.withIndex()) {
+                b.iconRowTinted(card, iconAt(si, i), tintAt(si), item.label, subtitle(item.label),
+                    android.view.View.OnClickListener { item.action() })
+            }
+        }
+    }
+
+    /**
+     * Colour and mark for each row, in the order the sections are declared: a long
+     * list is read by colour before it is read by word.
+     */
+    private val SECTION_TINT = intArrayOf(
+        0xFFFFA726.toInt(), 0xFF26A69A.toInt(), 0xFF42A5F5.toInt(), 0xFFFFCA28.toInt(),
+        0xFF66BB6A.toInt(), 0xFFFFCA28.toInt(), 0xFFEF5350.toInt()
+    )
+
+    private val SECTION_ICONS = listOf(
+        listOf(R.drawable.ic_palette, R.drawable.ic_home, R.drawable.ic_grid,
+               R.drawable.ic_find, R.drawable.ic_toolbar),
+        listOf(R.drawable.ic_tabs, R.drawable.ic_bookmark, R.drawable.ic_history,
+               R.drawable.ic_schedule, R.drawable.ic_book, R.drawable.ic_folder,
+               R.drawable.ic_download, R.drawable.ic_save, R.drawable.ic_speak),
+        listOf(R.drawable.ic_globe, R.drawable.ic_shield, R.drawable.ic_block,
+               R.drawable.ic_shield, R.drawable.ic_lock, R.drawable.ic_verified,
+               R.drawable.ic_share, R.drawable.ic_key, R.drawable.ic_note,
+               R.drawable.ic_delete),
+        listOf(R.drawable.ic_cache, R.drawable.ic_memory),
+        listOf(R.drawable.ic_translate, R.drawable.ic_font, R.drawable.ic_eyeoff),
+        listOf(R.drawable.ic_save, R.drawable.ic_code, R.drawable.ic_data,
+               R.drawable.ic_list, R.drawable.ic_filter, R.drawable.ic_tune,
+               R.drawable.ic_extension, R.drawable.ic_palette),
+        listOf(R.drawable.ic_info, R.drawable.ic_note, R.drawable.ic_shield,
+               R.drawable.ic_send, R.drawable.ic_info, R.drawable.ic_update,
+               R.drawable.ic_info, R.drawable.ic_help, R.drawable.ic_star)
+    )
+
+    private fun iconAt(section: Int, index: Int): Int =
+        SECTION_ICONS.getOrNull(section)?.getOrNull(index) ?: R.drawable.ic_settings
+
+    private fun tintAt(section: Int): Int =
+        SECTION_TINT.getOrNull(section) ?: attr(R.attr.textSecondaryColor)
+
+    private fun addSearchBox() {
+        if (searchAdded) return
+        searchAdded = true
+        val et = android.widget.EditText(this)
+        et.hint = getString(R.string.st_search)
+        et.isSingleLine = true
+        et.setTextColor(attr(R.attr.textPrimaryColor))
+        et.setHintTextColor(attr(R.attr.textSecondaryColor))
+        val bg = android.graphics.drawable.GradientDrawable()
+        bg.cornerRadius = dp(20).toFloat()
+        bg.setColor(attr(R.attr.surface2Color))
+        et.background = bg
+        et.setPadding(dp(16), dp(11), dp(16), dp(11))
+        et.layoutParams = LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        et.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) { query = s?.toString() ?: ""; rebuild() }
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b2: Int, c: Int) { }
+            override fun onTextChanged(s: CharSequence?, a: Int, b2: Int, c: Int) { }
+        })
+        val box = LinearLayout(this)
+        box.setPadding(dp(14), dp(10), dp(14), dp(2))
+        box.addView(et)
+        addTopView(box)
+    }
+
+    /**
+     * The second line a row shows. The reference puts the current value there
+     * rather than a description, so that is what this returns.
+     */
+    /**
+     * The current state, under the name. A settings list that only says "Ad blocking" makes
+     * you open it to find out whether it is on - which is the one thing a list should save you.
+     */
+    private fun subtitle(label: String): String? = try {
+        when (label) {
+            getString(R.string.s_search_engine) -> SearchEngineStore(this).default().name
+            getString(R.string.ab_title), getString(R.string.sh_ads) ->
+                if (prefs.getBoolean("block_ads", true)) "On" else "Off"
+            getString(R.string.s_tracking), getString(R.string.sh_trackers) ->
+                if (prefs.getBoolean("block_trackers", true)) "On" else "Off"
+            getString(R.string.s_appearance), getString(R.string.ap_theme) ->
+                when (prefs.getString("site_appearance", "auto")) {
+                    "light" -> "Light"
+                    "dark" -> "Dark"
+                    else -> "Automatic"
+                }
+            getString(R.string.s_focus) -> {
+                val n = (prefs.getString("block_sites", "") ?: "").split("\n").count { it.isNotBlank() }
+                when {
+                    n == 0 -> "No sites"
+                    prefs.getBoolean("block_always", false) -> "$n blocked, always"
+                    prefs.getBoolean("block_sched_on", false) ->
+                        String.format("%d blocked, %02d:00-%02d:00", n,
+                            prefs.getInt("block_from", 9), prefs.getInt("block_to", 18))
+                    else -> "$n blocked, off"
+                }
+            }
+            getString(R.string.r_extensions) -> {
+                val all = try { ExtensionStore(this).getAll() } catch (_: Exception) { emptyList() }
+                val on = all.count { it.enabled }
+                if (all.isEmpty()) "None installed" else "$on of ${all.size} on"
+            }
+            getString(R.string.s_passwords) -> {
+                val n = (prefs.getString("passwords", "") ?: "").split("\n").count { it.contains('\u0001') }
+                if (n == 0) "None saved" else "$n saved"
+            }
+            getString(R.string.sh_https), getString(R.string.adv_https) ->
+                if (prefs.getBoolean("https_only", true)) "On" else "Off"
+            else -> null
+        }
+    } catch (_: Exception) { null }
+
+    private fun containerName(): String = try {
+        val s = ContainerStore(this)
+        val id = s.activeContainerId
+        s.getContainers().firstOrNull { it.id == id }?.name ?: "Personal"
+    } catch (_: Exception) { "Personal" }
+
+    private fun go(cls: Class<*>) { startActivity(Intent(this, cls)) }
+
+    private fun showDialog(title: String, message: String) {
+        AlertDialog.Builder(this).setTitle(title).setMessage(message)
+            .setPositiveButton(android.R.string.ok, null).show()
+    }
+
+    private fun appVersion(): String = try {
+        packageManager.getPackageInfo(packageName, 0).versionName ?: "?"
+    } catch (_: Exception) { "?" }
+
+    private fun webViewVersion(): String = try {
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            val pm = android.webkit.WebView.getCurrentWebViewPackage()
+            (pm?.versionName ?: "unknown") + "  (" + (pm?.packageName ?: "") + ")"
+        } else "unknown"
+    } catch (_: Exception) { "unknown" }
+
+    private fun feedback() {
+        val i = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + getString(R.string.feedback_email)))
+        try { startActivity(i) }
+        catch (_: Exception) { showDialog(getString(R.string.s_feedback), getString(R.string.feedback_email)) }
+    }
+}

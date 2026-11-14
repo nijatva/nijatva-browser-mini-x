@@ -1,4 +1,4 @@
-package `in`.nijatva.browser
+package com.nijatva.mini.x
 
 import android.app.Notification
 import android.app.NotificationChannel

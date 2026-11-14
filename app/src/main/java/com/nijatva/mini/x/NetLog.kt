@@ -1,4 +1,4 @@
-package `in`.nijatva.browser
+package com.nijatva.mini.x
 
 import java.text.SimpleDateFormat
 import java.util.Collections

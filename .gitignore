@@ -1,0 +1,19 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.jks
+*.keystore
+keystore.properties
+
+# The store signing key must never be committed. The public key in
+# extensions/store-pubkey.pem is meant to be here - this only blocks the private one.
+*-signing-key.pem
+*private*.pem

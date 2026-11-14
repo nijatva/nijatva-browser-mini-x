@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nijatva launcher background. The mark is the blue N ribbon on a white card,
+     so the adaptive background is white too - anything else shows through the
+     corners when a launcher masks the icon to a circle. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FFFFFF" />
+</shape>

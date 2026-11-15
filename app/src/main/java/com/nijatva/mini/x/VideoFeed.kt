@@ -34,15 +34,8 @@ object VideoFeed {
         val extractor = ServiceList.YouTube.getSearchExtractor(query)
         extractor.fetchPage()
         val out = ArrayList<Card>()
+        // one page is enough for a shelf; asking for more costs another round trip
         collect(extractor.initialPage.items, out, limit)
-        var page = extractor.nextPage
-        var guard = 0
-        while (out.size < limit && page != null && guard < 2) {
-            extractor.fetchPage()
-            collect(extractor.initialPage.items, out, limit)
-            page = extractor.nextPage
-            guard++
-        }
         return out.take(limit)
     }
 

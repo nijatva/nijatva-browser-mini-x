@@ -284,7 +284,7 @@ class ShellActivity : AppCompatActivity() {
             Triple("\u2B07", "My Files", Runnable { startActivity(Intent(this@ShellActivity, DownloadsActivity::class.java)) }),
             Triple("\u25F4", "History", Runnable { startActivity(Intent(this@ShellActivity, HistoryActivity::class.java)) }),
             Triple("\u2630", "Bookmarks", Runnable { startActivity(Intent(this@ShellActivity, BookmarksActivity::class.java)) }),
-            Triple("\u2699", "Settings", Runnable { startActivity(Intent(this@ShellActivity, SettingsActivity::class.java)) })
+            Triple("\u2699", "Settings", Runnable { startActivity(Intent(this@ShellActivity, MiniSettingsActivity::class.java)) })
         )
         page.addView(grid(actions))
 
@@ -294,7 +294,7 @@ class ShellActivity : AppCompatActivity() {
             Triple("\u21BB", "Update", Runnable { open("https://github.com/vasudev-work/nijatva-browser-mini-x/releases") }),
             Triple("\u2709", "Feedback", Runnable { mail() }),
             Triple("\u003F", "Help", Runnable { open("https://vasudev-work.github.io/nijatva-web-store/") }),
-            Triple("\u2699", "Settings", Runnable { startActivity(Intent(this@ShellActivity, SettingsActivity::class.java)) }),
+            Triple("\u2699", "Settings", Runnable { startActivity(Intent(this@ShellActivity, MiniSettingsActivity::class.java)) }),
             Triple("\u2327", "Junk Clean", Runnable { clean() }),
             Triple("\u26A1", "Boost", Runnable { toastNote("Nothing to boost - the browser keeps no background work.") })
         )

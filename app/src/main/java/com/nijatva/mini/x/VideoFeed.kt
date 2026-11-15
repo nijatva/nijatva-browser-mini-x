@@ -47,7 +47,6 @@ object VideoFeed {
         init()
         return try {
             val kiosk = ServiceList.YouTube.kioskList
-            kiosk.fetchAvailableKiosks()
             val ext = kiosk.getExtractorById("Trending", null)
             ext.fetchPage()
             val out = ArrayList<Card>()

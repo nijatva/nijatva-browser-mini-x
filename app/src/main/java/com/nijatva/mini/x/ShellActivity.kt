@@ -7,7 +7,10 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.graphics.Bitmap
 import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
@@ -15,6 +18,10 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * The shell the app opens into: four tabs, a search that goes to the browser, and the
@@ -203,19 +210,95 @@ class ShellActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(18), 0, dp(10))
         }
-        head.addView(label("Recent", 17f, ink, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        head.addView(label("Videos", 17f, ink, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         head.addView(label("My Files", 13f, red).apply {
             setOnClickListener { startActivity(Intent(this@ShellActivity, MiniFilesActivity::class.java)) }
         })
         page.addView(head)
 
-        val recent = recentPages()
+        val holder = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        page.addView(holder)
+        val spinner = label("Loading videos...", 13f, dim).apply { setPadding(0, dp(20), 0, dp(20)) }
+        holder.addView(spinner)
 
-        if (recent.isEmpty()) {
-            page.addView(emptyBox("Nothing here yet", "Pages you open will show up here."))
-        } else {
-            for (r in recent) page.addView(recentCard(r.first, r.second))
+        CoroutineScope(Dispatchers.Main).launch {
+            val cards = withContext(Dispatchers.IO) {
+                runCatching { VideoFeed.search("trending videos", 12) }.getOrDefault(emptyList())
+            }
+            holder.removeAllViews()
+            if (cards.isEmpty()) {
+                holder.addView(label("Could not load the feed. Pull a link instead.", 13f, dim).apply {
+                    setPadding(0, dp(16), 0, dp(10))
+                })
+                for (r in recentPages().take(6)) holder.addView(recentCard(r.first, r.second))
+                return@launch
+            }
+            for (c in cards) {
+                val card = feedCard(c)
+                holder.addView(card)
+                CoroutineScope(Dispatchers.Main).launch {
+                    val bmp = withContext(Dispatchers.IO) { VideoFeed.thumb(c.thumb) }
+                    if (bmp != null) card.findViewWithTag<ImageView>("thumb")?.setImageBitmap(bmp)
+                }
+            }
         }
+    }
+
+    /** One video: a picture, how long it runs, who made it, and a way to keep it. */
+    private fun feedCard(c: VideoFeed.Card): LinearLayout {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = pill(Color.WHITE, 14)
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+        }
+
+        val frame = FrameLayout(this)
+        val pic = ImageView(this).apply {
+            tag = "thumb"
+            setBackgroundColor(0xFFE6E6E6.toInt())
+            scaleType = ImageView.ScaleType.CENTER_CROP
+        }
+        frame.addView(pic, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(180)))
+        if (c.duration > 0) {
+            val badge = label(VideoFeed.humanDuration(c.duration), 11f, Color.WHITE, true).apply {
+                setPadding(dp(6), dp(2), dp(6), dp(2))
+                background = pill(0xCC000000.toInt(), 6)
+            }
+            val lp = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.END)
+            lp.setMargins(0, 0, dp(8), dp(8))
+            frame.addView(badge, lp)
+        }
+        card.addView(frame)
+
+        card.addView(label(c.title, 14.5f, ink, true).apply {
+            maxLines = 2
+            setPadding(0, dp(10), 0, dp(2))
+        })
+
+        val meta = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val views = VideoFeed.humanViews(c.views)
+        val line = listOf(c.uploader, views).filter { it.isNotBlank() }.joinToString("  ·  ")
+        meta.addView(label(line, 12f, dim).apply { maxLines = 1 },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        meta.addView(label("⬇ Download", 12.5f, red, true).apply {
+            setPadding(dp(10), dp(6), dp(4), dp(6))
+            setOnClickListener {
+                startActivity(Intent(this@ShellActivity, VideoDownloadActivity::class.java)
+                    .putExtra("video_url", c.url))
+            }
+        })
+        card.addView(meta)
+
+        val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        lp.bottomMargin = dp(10)
+        card.layoutParams = lp
+        return card
     }
 
     private fun recentCard(title: String, url: String): LinearLayout {

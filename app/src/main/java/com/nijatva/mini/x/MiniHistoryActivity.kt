@@ -118,7 +118,7 @@ class MiniHistoryActivity : AppCompatActivity() {
         }?.take(40) ?: emptyList()
     } catch (_: Exception) { emptyList() }
 
-    private fun emptyState(text: String): LinearLayout {
+    private fun emptyState(caption: String): LinearLayout {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(0, dp(70), 0, 0)
         }
@@ -126,7 +126,7 @@ class MiniHistoryActivity : AppCompatActivity() {
             text = "\u25A1"; textSize = 54f; setTextColor(0xFF2E2E2E.toInt()); gravity = Gravity.CENTER
         })
         box.addView(TextView(this).apply {
-            text = text; textSize = 15f; setTextColor(dim); gravity = Gravity.CENTER; setPadding(0, dp(14), 0, 0)
+            text = caption; textSize = 15f; setTextColor(dim); gravity = Gravity.CENTER; setPadding(0, dp(14), 0, 0)
         })
         return box
     }

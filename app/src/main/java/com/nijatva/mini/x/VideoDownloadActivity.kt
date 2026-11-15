@@ -22,6 +22,7 @@ import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Request
 import org.schabi.newpipe.extractor.downloader.Response
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.stream.StreamInfo
 
 /**
@@ -144,10 +145,10 @@ class VideoDownloadActivity : AppCompatActivity() {
         for (v in info.videoStreams) {
             val label = v.resolution ?: "video"
             val size = if (v.itagItem != null) "" else ""
-            out.add(Pick(label + "  " + v.format.name, v.url, size))
+            out.add(Pick(label + "  " + (v.format?.name ?: ""), v.url, size))
         }
         for (a in info.audioStreams) {
-            out.add(Pick("audio  " + a.format.name, a.url, ""))
+            out.add(Pick("audio  " + (a.format?.name ?: ""), a.url, ""))
         }
         return out.sortedBy { it.label }
     }
@@ -190,11 +191,9 @@ class VideoDownloadActivity : AppCompatActivity() {
 
         override fun execute(request: Request): Response {
             val builder = okhttp3.Request.Builder()
-                .method(request.httpMethod(), request.dataToSend()?.let {
-                    okhttp3.RequestBody.create(null, it)
-                })
+                .method(request.httpMethod(), request.dataToSend()?.toRequestBody())
                 .url(request.url())
-            for ((k, v) in request.headers()) builder.addHeader(k, v)
+            for ((k, values) in request.headers()) for (v in values) builder.addHeader(k, v)
             client.newCall(builder.build()).execute().use { res ->
                 return Response(res.code, res.message, res.headers.toMultimap(),
                     res.body?.string(), res.request.url.toString())

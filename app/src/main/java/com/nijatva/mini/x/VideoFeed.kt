@@ -62,10 +62,10 @@ object VideoFeed {
     fun channelVideos(channelUrl: String, limit: Int = 20): List<Card> {
         init()
         return try {
-            val ext = ServiceList.YouTube.getChannelExtractor(channelUrl)
-            ext.fetchPage()
+            // a channel answers with its own info object, not a page of results
+            val info = org.schabi.newpipe.extractor.channel.ChannelInfo.getInfo(ServiceList.YouTube, channelUrl)
             val out = ArrayList<Card>()
-            collect(ext.initialPage.items, out, limit)
+            collect(info.relatedItems, out, limit)
             out.take(limit)
         } catch (_: Exception) { emptyList() }
     }

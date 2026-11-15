@@ -221,7 +221,7 @@ class ShellActivity : AppCompatActivity() {
 
         CoroutineScope(Dispatchers.Main).launch {
             val cards = withContext(Dispatchers.IO) {
-                runCatching { VideoFeed.search("trending videos", 12) }.getOrDefault(emptyList())
+                runCatching { VideoFeed.trending(12) }.getOrDefault(emptyList())
             }
             holder.removeAllViews()
             if (cards.isEmpty()) {
@@ -292,6 +292,8 @@ class ShellActivity : AppCompatActivity() {
             }
         })
         card.addView(meta)
+
+        card.setOnClickListener { open(c.url) }
 
         val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         lp.bottomMargin = dp(10)

@@ -39,6 +39,35 @@ object VideoFeed {
         return out.take(limit)
     }
 
+    /**
+     * What is trending, read the way the site's own front page reads it - the same shelf the
+     * reference apps show first. Falls back to a search if the kiosk cannot be reached.
+     */
+    fun trending(limit: Int = 20): List<Card> {
+        init()
+        return try {
+            val kiosk = ServiceList.YouTube.kioskList
+            kiosk.fetchAvailableKiosks()
+            val ext = kiosk.getExtractorById("Trending", null)
+            ext.fetchPage()
+            val out = ArrayList<Card>()
+            collect(ext.initialPage.items, out, limit)
+            if (out.isEmpty()) search("trending", limit) else out.take(limit)
+        } catch (_: Exception) {
+            try { search("trending", limit) } catch (_: Exception) { emptyList() }
+        }
+    }
+
+    /** A single video's playable url, for the player. */
+    fun streamUrl(videoUrl: String): String? {
+        init()
+        return try {
+            val info = org.schabi.newpipe.extractor.stream.StreamInfo.getInfo(ServiceList.YouTube, videoUrl)
+            val v = info.videoStreams.firstOrNull { it.url != null && it.resolution == null || it.url != null }
+            v?.url ?: info.videoStreams.firstOrNull()?.url
+        } catch (_: Exception) { null }
+    }
+
     private fun collect(items: List<org.schabi.newpipe.extractor.InfoItem>, out: MutableList<Card>, limit: Int) {
         for (i in items) {
             if (out.size >= limit) return

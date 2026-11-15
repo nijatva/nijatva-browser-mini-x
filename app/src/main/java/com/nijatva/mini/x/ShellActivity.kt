@@ -71,13 +71,13 @@ class ShellActivity : AppCompatActivity() {
             setPadding(dp(8), dp(8), dp(8), dp(10))
             elevation = dp(8).toFloat()
         }
-        for ((key, title) in listOf("home" to "HOME", "game" to "GAME", "music" to "MUSIC", "me" to "ME")) {
+        for ((key, title) in listOf("home" to "HOME", "music" to "MUSIC", "files" to "MY FILES", "me" to "ME")) {
             val col = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
                 setPadding(0, dp(6), 0, dp(2))
             }
-            val mark = label(if (key == "home") "\u2302" else if (key == "game") "\u25C9" else if (key == "music") "\u266B" else "\u25CF", 20f, dim)
+            val mark = label(if (key == "home") "\u2302" else if (key == "files") "\u2B07" else if (key == "music") "\u266B" else "\u25CF", 20f, dim)
             mark.gravity = Gravity.CENTER
             val t = label(title, 10f, dim, true).apply { gravity = Gravity.CENTER; setPadding(0, dp(3), 0, 0) }
             col.addView(mark)
@@ -112,7 +112,7 @@ class ShellActivity : AppCompatActivity() {
         when (which) {
             "home" -> home(page)
             "music" -> music(page)
-            "game" -> game(page)
+            "files" -> { startActivity(Intent(this, MiniFilesActivity::class.java)); show("home"); return }
             else -> me(page)
         }
     }
@@ -205,7 +205,7 @@ class ShellActivity : AppCompatActivity() {
         }
         head.addView(label("Recent", 17f, ink, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         head.addView(label("My Files", 13f, red).apply {
-            setOnClickListener { startActivity(Intent(this@ShellActivity, DownloadsActivity::class.java)) }
+            setOnClickListener { startActivity(Intent(this@ShellActivity, MiniFilesActivity::class.java)) }
         })
         page.addView(head)
 
@@ -243,15 +243,56 @@ class ShellActivity : AppCompatActivity() {
         page.addView(label("Music", 26f, ink, true).apply { setPadding(0, 0, 0, dp(12)) })
         searchBar(page, "Search Music") { open(searchUrl(it)) }
 
-        val tabs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(14), 0, dp(10)) }
+        val tabs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(14), 0, dp(4)) }
         for ((i, t) in listOf("Music", "New releases", "Charts", "Moods & genres").withIndex()) {
-            val v = label(t, 13.5f, if (i == 0) ink else dim, i == 0).apply {
-                setPadding(0, dp(6), dp(18), dp(6))
+            val v = label(t, 13f, if (i == 0) ink else dim, i == 0).apply {
+                setPadding(0, dp(8), dp(14), dp(8))
             }
+            v.setOnClickListener { moods(page, t) }
             tabs.addView(v)
         }
         page.addView(tabs)
-        page.addView(emptyBox("No music yet", "Songs you open in the browser can be saved here."))
+        moods(page, "Music")
+    }
+
+    /** The shelves: a mood or a genre opens a search for it, which is the one honest thing a feed-less build can do. */
+    private fun moods(page: LinearLayout, which: String) {
+        val old = page.findViewWithTag<LinearLayout>("moods")
+        if (old != null) page.removeView(old)
+
+        val wrap = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            tag = "moods"
+        }
+        val head = label(if (which == "Moods & genres") "Moods & genres" else which, 15f, ink, true)
+        head.setPadding(0, dp(16), 0, dp(10))
+        wrap.addView(head)
+
+        val items = if (which == "Moods & genres")
+            listOf("Chill", "Commute", "Diwali", "Energize", "Feel good", "Focus",
+                   "Gaming", "Party", "Romance", "Sad", "Sleep", "Workout")
+        else listOf("Quick picks", "India's biggest hits", "Romance right now", "New releases")
+
+        var row: LinearLayout? = null
+        for ((i, m) in items.withIndex()) {
+            if (i % 3 == 0) {
+                row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                wrap.addView(row)
+            }
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                background = pill(0xFF1C1C1C.toInt(), 14)
+                setPadding(dp(8), dp(18), dp(8), dp(18))
+            }
+            card.addView(label("\u266B", 18f, red, true).apply { gravity = Gravity.CENTER })
+            card.addView(label(m, 12.5f, ink).apply { gravity = Gravity.CENTER; setPadding(0, dp(8), 0, 0) })
+            card.setOnClickListener { open(searchUrl("$m songs")) }
+            val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            lp.setMargins(dp(4), dp(4), dp(4), dp(4))
+            row?.addView(card, lp)
+        }
+        page.addView(wrap)
     }
 
     private fun game(page: LinearLayout) {
@@ -281,8 +322,8 @@ class ShellActivity : AppCompatActivity() {
         page.addView(top)
 
         val actions = listOf(
-            Triple("\u2B07", "My Files", Runnable { startActivity(Intent(this@ShellActivity, DownloadsActivity::class.java)) }),
-            Triple("\u25F4", "History", Runnable { startActivity(Intent(this@ShellActivity, HistoryActivity::class.java)) }),
+            Triple("\u2B07", "My Files", Runnable { startActivity(Intent(this@ShellActivity, MiniFilesActivity::class.java)) }),
+            Triple("\u25F4", "History", Runnable { startActivity(Intent(this@ShellActivity, MiniHistoryActivity::class.java)) }),
             Triple("\u2630", "Bookmarks", Runnable { startActivity(Intent(this@ShellActivity, BookmarksActivity::class.java)) }),
             Triple("\u2699", "Settings", Runnable { startActivity(Intent(this@ShellActivity, MiniSettingsActivity::class.java)) })
         )

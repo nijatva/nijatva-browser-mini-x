@@ -27,7 +27,10 @@ object VideoFeed {
 
     /** One loader for the whole app; NewPipe is a singleton too. */
     fun init() {
-        try { NewPipe.init(NpDownloader()) } catch (_: Exception) { }
+        try {
+            NewPipe.init(NpDownloader(),
+                org.schabi.newpipe.extractor.localization.Localization("en", "IN"))
+        } catch (_: Exception) { }
     }
 
     fun search(query: String, limit: Int = 20): List<Card> {

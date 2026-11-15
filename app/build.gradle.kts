@@ -64,7 +64,7 @@ dependencies {
 
     // The one engine that reads a video page without scraping it by hand. MIT licensed,
     // a couple of megabytes, and no Python runtime inside the app.
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.24.5")
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.25.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 

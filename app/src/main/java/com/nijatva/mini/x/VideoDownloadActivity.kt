@@ -131,7 +131,7 @@ class VideoDownloadActivity : AppCompatActivity() {
                 status.text = "${streams.size} streams"
                 for (s in streams) list.addView(streamRow(s))
             }.onFailure { e ->
-                status.text = "Could not read that page: " + (e.message ?: "unknown error")
+                status.text = "Could not read that page: " + (e.message ?: e.javaClass.simpleName)
             }
         }
     }
@@ -139,7 +139,8 @@ class VideoDownloadActivity : AppCompatActivity() {
     private data class Pick(val label: String, val url: String, val size: String)
 
     private fun extract(url: String): List<Pick> {
-        NewPipe.init(NpDownloader())
+        NewPipe.init(NpDownloader(),
+            org.schabi.newpipe.extractor.localization.Localization("en", "IN"))
         val info = StreamInfo.getInfo(ServiceList.YouTube, url)
         val out = ArrayList<Pick>()
         for (v in info.videoStreams) {

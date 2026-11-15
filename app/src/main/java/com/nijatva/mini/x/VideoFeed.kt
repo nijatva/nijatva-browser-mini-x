@@ -21,7 +21,8 @@ object VideoFeed {
         val thumb: String,
         val duration: Long,
         val views: Long,
-        val uploader: String
+        val uploader: String,
+        val uploaderUrl: String
     )
 
     /** One loader for the whole app; NewPipe is a singleton too. */
@@ -57,6 +58,18 @@ object VideoFeed {
         }
     }
 
+    /** The latest videos from one channel. */
+    fun channelVideos(channelUrl: String, limit: Int = 20): List<Card> {
+        init()
+        return try {
+            val ext = ServiceList.YouTube.getChannelExtractor(channelUrl)
+            ext.fetchPage()
+            val out = ArrayList<Card>()
+            collect(ext.initialPage.items, out, limit)
+            out.take(limit)
+        } catch (_: Exception) { emptyList() }
+    }
+
     /** A single video's playable url, for the player. */
     fun streamUrl(videoUrl: String): String? {
         init()
@@ -79,7 +92,8 @@ object VideoFeed {
                 thumb = thumb,
                 duration = s.duration,
                 views = s.viewCount,
-                uploader = s.uploaderName ?: ""
+                uploader = s.uploaderName ?: "",
+                uploaderUrl = s.uploaderUrl ?: ""
             ))
         }
     }

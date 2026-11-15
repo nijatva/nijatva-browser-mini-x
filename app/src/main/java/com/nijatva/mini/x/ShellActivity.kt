@@ -284,6 +284,18 @@ class ShellActivity : AppCompatActivity() {
         val line = listOf(c.uploader, views).filter { it.isNotBlank() }.joinToString("  ·  ")
         meta.addView(label(line, 12f, dim).apply { maxLines = 1 },
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        meta.addView(label(if (Subs.has(this, c.uploaderUrl)) "★" else "☆", 15f, red, true).apply {
+            setPadding(dp(8), dp(4), dp(4), dp(6))
+            setOnClickListener {
+                val followed = Subs.has(this@ShellActivity, c.uploaderUrl)
+                if (followed) Subs.remove(this@ShellActivity, c.uploaderUrl)
+                else Subs.add(this@ShellActivity, c.uploader, c.uploaderUrl)
+                android.widget.Toast.makeText(this@ShellActivity,
+                    if (!followed) "Following " + c.uploader else "Unfollowed",
+                    android.widget.Toast.LENGTH_SHORT).show()
+                show("home")
+            }
+        })
         meta.addView(label("⬇ Download", 12.5f, red, true).apply {
             setPadding(dp(10), dp(6), dp(4), dp(6))
             setOnClickListener {
@@ -293,7 +305,10 @@ class ShellActivity : AppCompatActivity() {
         })
         card.addView(meta)
 
-        card.setOnClickListener { open(c.url) }
+        card.setOnClickListener {
+            startActivity(Intent(this@ShellActivity, PlayerActivity::class.java)
+                .putExtra("video_url", c.url))
+        }
 
         val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         lp.bottomMargin = dp(10)
@@ -407,7 +422,7 @@ class ShellActivity : AppCompatActivity() {
         val actions = listOf(
             Triple("\u2B07", "My Files", Runnable { startActivity(Intent(this@ShellActivity, MiniFilesActivity::class.java)) }),
             Triple("\u25F4", "History", Runnable { startActivity(Intent(this@ShellActivity, MiniHistoryActivity::class.java)) }),
-            Triple("\u2630", "Bookmarks", Runnable { startActivity(Intent(this@ShellActivity, BookmarksActivity::class.java)) }),
+            Triple("\u2605", "Subscriptions", Runnable { startActivity(Intent(this@ShellActivity, SubscriptionsActivity::class.java)) }),
             Triple("\u2699", "Settings", Runnable { startActivity(Intent(this@ShellActivity, MiniSettingsActivity::class.java)) })
         )
         page.addView(grid(actions))

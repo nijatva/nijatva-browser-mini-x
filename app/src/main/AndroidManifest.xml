@@ -35,6 +35,8 @@
 
         <activity android:name=".MiniSettingsActivity" android:exported="false" android:label="Settings" android:theme="@style/Theme.Nijatva" />
         <activity android:name=".ContentSettingsActivity" android:exported="false" android:label="Content Settings" android:theme="@style/Theme.Nijatva" />
+        <activity android:name=".PlayerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden" android:theme="@style/Theme.Nijatva" />
+        <activity android:name=".SubscriptionsActivity" android:exported="false" android:label="Subscriptions" android:theme="@style/Theme.Nijatva" />
         <activity android:name=".VideoDownloadActivity" android:exported="false" android:label="Download video" android:theme="@style/Theme.Nijatva" />
         <activity android:name=".MiniFilesActivity" android:exported="false" android:label="My Files" android:theme="@style/Theme.Nijatva" />
         <activity android:name=".MiniHistoryActivity" android:exported="false" android:label="History" android:theme="@style/Theme.Nijatva" />

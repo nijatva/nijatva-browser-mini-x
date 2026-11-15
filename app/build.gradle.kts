@@ -67,6 +67,11 @@ dependencies {
     implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.24.5")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // Apache-2.0, not GPL: a real player without the licence bill of the reference apps
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-ui:1.4.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
     implementation("com.google.android.material:material:1.12.0")
     // MainActivity wraps the WebView in a SwipeRefreshLayout for pull-to-refresh.
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")

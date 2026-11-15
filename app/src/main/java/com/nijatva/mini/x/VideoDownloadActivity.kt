@@ -145,10 +145,12 @@ class VideoDownloadActivity : AppCompatActivity() {
         for (v in info.videoStreams) {
             val label = v.resolution ?: "video"
             val size = if (v.itagItem != null) "" else ""
-            out.add(Pick(label + "  " + (v.format?.name ?: ""), v.url, size))
+            val u = v.url ?: ""
+            if (u.isNotBlank()) out.add(Pick(label + "  " + (v.format?.name ?: ""), u, size))
         }
         for (a in info.audioStreams) {
-            out.add(Pick("audio  " + (a.format?.name ?: ""), a.url, ""))
+            val au = a.url ?: ""
+            if (au.isNotBlank()) out.add(Pick("audio  " + (a.format?.name ?: ""), au, ""))
         }
         return out.sortedBy { it.label }
     }

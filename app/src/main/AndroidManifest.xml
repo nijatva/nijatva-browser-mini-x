@@ -35,6 +35,7 @@
 
         <activity android:name=".MiniSettingsActivity" android:exported="false" android:label="Settings" android:theme="@style/Theme.Nijatva" />
         <activity android:name=".ContentSettingsActivity" android:exported="false" android:label="Content Settings" android:theme="@style/Theme.Nijatva" />
+        <activity android:name=".VideoDownloadActivity" android:exported="false" android:label="Download video" android:theme="@style/Theme.Nijatva" />
         <activity android:name=".MiniFilesActivity" android:exported="false" android:label="My Files" android:theme="@style/Theme.Nijatva" />
         <activity android:name=".MiniHistoryActivity" android:exported="false" android:label="History" android:theme="@style/Theme.Nijatva" />
         <activity android:name=".OtherSettingsActivity" android:exported="false" android:label="Other Settings" android:theme="@style/Theme.Nijatva" />

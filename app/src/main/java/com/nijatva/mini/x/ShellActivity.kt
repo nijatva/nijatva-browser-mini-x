@@ -330,6 +330,7 @@ class ShellActivity : AppCompatActivity() {
         page.addView(grid(actions))
 
         val more = listOf(
+            Triple("\u2B07", "Download video", Runnable { startActivity(Intent(this@ShellActivity, VideoDownloadActivity::class.java)) }),
             Triple("\u21F1", "Share", Runnable { share() }),
             Triple("\u2605", "Like us", Runnable { open("https://github.com/vasudev-work/nijatva-browser-mini-x") }),
             Triple("\u21BB", "Update", Runnable { open("https://github.com/vasudev-work/nijatva-browser-mini-x/releases") }),

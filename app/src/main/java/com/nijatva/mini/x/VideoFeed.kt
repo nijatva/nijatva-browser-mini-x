@@ -58,18 +58,6 @@ object VideoFeed {
         }
     }
 
-    /** The latest videos from one channel. */
-    fun channelVideos(channelUrl: String, limit: Int = 20): List<Card> {
-        init()
-        return try {
-            // a channel answers with its own info object, not a page of results
-            val info = org.schabi.newpipe.extractor.channel.ChannelInfo.getInfo(ServiceList.YouTube, channelUrl)
-            val out = ArrayList<Card>()
-            collect(info.relatedItems, out, limit)
-            out.take(limit)
-        } catch (_: Exception) { emptyList() }
-    }
-
     /** A single video's playable url, for the player. */
     fun streamUrl(videoUrl: String): String? {
         init()

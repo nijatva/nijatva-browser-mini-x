@@ -84,44 +84,8 @@ class SubscriptionsActivity : AppCompatActivity() {
     }
 
     private fun load(c: Subs.Channel) {
-        body.removeAllViews()
-        val head = TextView(this).apply {
-            text = c.name; textSize = 16f; setTextColor(ink)
-            setTypeface(null, android.graphics.Typeface.BOLD); setPadding(0, dp(10), 0, dp(8))
-        }
-        body.addView(head)
-        val note = TextView(this).apply {
-            text = "Loading..."; textSize = 13f; setTextColor(dim)
-        }
-        body.addView(note)
-
-        CoroutineScope(Dispatchers.Main).launch {
-            val items = withContext(Dispatchers.IO) {
-                runCatching { VideoFeed.channelVideos(c.url, 15) }.getOrDefault(emptyList())
-            }
-            note.visibility = android.view.View.GONE
-            if (items.isEmpty()) {
-                body.addView(TextView(this@SubscriptionsActivity).apply {
-                    text = "Could not read this channel."; setTextColor(dim); textSize = 13f
-                })
-                return@launch
-            }
-            for (v in items) body.addView(videoRow(v))
-        }
+        // the channel opens in the browser, which reads it the same way and never breaks
+        startActivity(Intent(this, MainActivity::class.java).putExtra("open_url", c.url))
     }
 
-    private fun videoRow(v: VideoFeed.Card): LinearLayout {
-        val r = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(12), 0, dp(12))
-        }
-        r.addView(TextView(this).apply { text = v.title; textSize = 14.5f; setTextColor(ink); maxLines = 2 })
-        val meta = listOf(VideoFeed.humanDuration(v.duration), VideoFeed.humanViews(v.views))
-            .filter { it.isNotBlank() }.joinToString("  \u00B7  ")
-        r.addView(TextView(this).apply { text = meta; textSize = 12f; setTextColor(dim) })
-        r.setOnClickListener {
-            startActivity(Intent(this, PlayerActivity::class.java).putExtra("video_url", v.url))
-        }
-        return r
-    }
 }

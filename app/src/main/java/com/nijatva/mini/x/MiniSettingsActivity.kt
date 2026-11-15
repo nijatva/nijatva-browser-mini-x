@@ -24,6 +24,8 @@ class MiniSettingsActivity : AppCompatActivity() {
     private val dim = 0xFF9A9A9A.toInt()
     private val red = 0xFFE53935.toInt()
 
+    private data class Row(val mark: String, val title: String, val sub: String?, val tap: () -> Unit)
+
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,15 +49,15 @@ class MiniSettingsActivity : AppCompatActivity() {
             background = rounded(card, 4)
         }
         val rows = listOf(
-            Triple("\u25C9", "Content", "Language, Location, Restricted Mode") { go(ContentSettingsActivity::class.java) },
-            Triple("\u2B07", "Download", "Path, WiFi, Subtitle, etc.") { go(DownloadSettingsActivity::class.java) },
-            Triple("\u2691", "Push Notifications", "Daily push, Like, Comment, Follow, Message") { go(PushSettingsActivity::class.java) },
-            Triple("\u25A6", "Widgets", "Quick Actions, Music Player, Hot Video") { note() },
-            Triple("\u2699", "Others", "Player, Update, Cache") { go(SettingsActivity::class.java) }
+            Row("\u25C9", "Content", "Language, Location, Restricted Mode") { go(ContentSettingsActivity::class.java) },
+            Row("\u2B07", "Download", "Path, WiFi, Subtitle, etc.") { go(DownloadSettingsActivity::class.java) },
+            Row("\u2691", "Push Notifications", "Daily push, Like, Comment, Follow, Message") { go(PushSettingsActivity::class.java) },
+            Row("\u25A6", "Widgets", "Quick Actions, Music Player, Hot Video") { note() },
+            Row("\u2699", "Others", "Player, Update, Cache") { go(SettingsActivity::class.java) }
         )
         for ((i, r) in rows.withIndex()) {
             if (i > 0) group.addView(divider())
-            group.addView(row(r.first, r.second, r.third, r.fourth))
+            group.addView(row(r.mark, r.title, r.sub, r.tap))
         }
         page.addView(group)
 

@@ -52,8 +52,8 @@ class MiniSettingsActivity : AppCompatActivity() {
             Row("\u25C9", "Content", "Language, Location, Restricted Mode") { go(ContentSettingsActivity::class.java) },
             Row("\u2B07", "Download", "Path, WiFi, Subtitle, etc.") { go(DownloadSettingsActivity::class.java) },
             Row("\u2691", "Push Notifications", "Daily push, Like, Comment, Follow, Message") { go(PushSettingsActivity::class.java) },
-            Row("\u25A6", "Widgets", "Quick Actions, Music Player, Hot Video") { note() },
-            Row("\u2699", "Others", "Player, Update, Cache") { go(SettingsActivity::class.java) }
+            Row("\u25A6", "Widgets", "Quick Actions, Music Player, Hot Video") { go(WidgetSettingsActivity::class.java) },
+            Row("\u2699", "Others", "Player, Update, Cache") { go(OtherSettingsActivity::class.java) }
         )
         for ((i, r) in rows.withIndex()) {
             if (i > 0) group.addView(divider())

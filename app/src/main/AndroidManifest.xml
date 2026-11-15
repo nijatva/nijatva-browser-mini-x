@@ -35,6 +35,8 @@
 
         <activity android:name=".MiniSettingsActivity" android:exported="false" android:label="Settings" android:theme="@style/Theme.Nijatva" />
         <activity android:name=".ContentSettingsActivity" android:exported="false" android:label="Content Settings" android:theme="@style/Theme.Nijatva" />
+        <activity android:name=".OtherSettingsActivity" android:exported="false" android:label="Other Settings" android:theme="@style/Theme.Nijatva" />
+        <activity android:name=".WidgetSettingsActivity" android:exported="false" android:label="Widget Settings" android:theme="@style/Theme.Nijatva" />
         <activity android:name=".PushSettingsActivity" android:exported="false" android:label="Push Notifications" android:theme="@style/Theme.Nijatva" />
 
         <activity

@@ -119,7 +119,7 @@ class ShellActivity : AppCompatActivity() {
 
     // ---------------------------------------------------------------- home
 
-    private fun searchBar(page: LinearLayout, hint: String, onGo: (String) -> Unit) {
+    private fun searchBar(page: LinearLayout, placeholder: String, onGo: (String) -> Unit) {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -128,7 +128,7 @@ class ShellActivity : AppCompatActivity() {
             elevation = dp(1).toFloat()
         }
         val q = EditText(this).apply {
-            hint = hint
+            hint = placeholder
             textSize = 15f
             setTextColor(ink)
             setHintTextColor(dim)
@@ -308,15 +308,15 @@ class ShellActivity : AppCompatActivity() {
             setPadding(dp(8), dp(14), dp(8), dp(6))
         }
         var row: LinearLayout? = null
-        for ((i, it) in items.withIndex()) {
+        for ((i, item) in items.withIndex()) {
             if (i % 4 == 0) {
                 row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
                 wrap.addView(row)
             }
             val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
-            col.addView(label(it.first, 19f, ink).apply { gravity = Gravity.CENTER })
-            col.addView(label(it.second, 11.5f, ink).apply { gravity = Gravity.CENTER; setPadding(0, dp(6), 0, 0) })
-            col.setOnClickListener { it.third.run() }
+            col.addView(label(item.first, 19f, ink).apply { gravity = Gravity.CENTER })
+            col.addView(label(item.second, 11.5f, ink).apply { gravity = Gravity.CENTER; setPadding(0, dp(6), 0, 0) })
+            col.setOnClickListener { item.third.run() }
             val lp = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             lp.bottomMargin = dp(14)
             row?.addView(col, lp)

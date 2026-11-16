@@ -19,6 +19,16 @@
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
+            <package android:name="com.nijatva.photos" />
+        <package android:name="com.nijatva.gallery" />
+        <package android:name="com.nijatva.camera" />
+        <package android:name="com.nijatva.photo.editor" />
+        <package android:name="com.nijatva.videoplayer" />
+        <package android:name="com.nijatva.music.player" />
+        <package android:name="com.nijatva.file" />
+        <package android:name="in.nijatva.browser" />
+        <package android:name="com.nijatva.mini.x" />
+        <package android:name="com.nijatva.wtrlab" />
     </queries>
 
     <application

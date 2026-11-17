@@ -55,6 +55,8 @@ android {
 }
 
 dependencies {
+    // Nijatva signature: shared Appearance + Developer screens
+    implementation(files("libs/nijatva-signature-1.0.0.aar"))
     // Everything here is AndroidX or Material. There is deliberately no
     // com.google.android.gms, no Firebase, no Play Services of any kind.
     implementation("androidx.core:core-ktx:1.13.1")

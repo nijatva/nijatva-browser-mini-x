@@ -13,6 +13,17 @@ import android.widget.TextView
 /** Who made this, what they build, and a way to reach them. */
 class DeveloperActivity : BaseSettingsActivity() {
 
+    /**
+     * The Developer screen is the shared Nijatva signature card now, so this activity
+     * hands over to it and closes. Kept as the entry point so existing menu items and
+     * intents keep working.
+     */
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        startActivity(com.nijatva.signature.Signature.developer(this))
+        finish()
+    }
+
     override val titleRes = R.string.dev_title
 
     override fun build(b: SettingsBuilder, content: LinearLayout) {

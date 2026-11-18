@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  packages: read
 
 jobs:
   build:
@@ -42,6 +43,10 @@ jobs:
 
       - name: Assemble debug
         run: gradle assembleDebug --stacktrace
+        env:
+          # reads com.nijatva:signature from GitHub Packages
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Name the APK
         run: cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/MiniX-debug.apk"
